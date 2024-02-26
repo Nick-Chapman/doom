@@ -1,0 +1,64 @@
+name:                doom
+version:             0.1.0.0
+description:         Explore loading/rendering of doom assets.
+license:             BSD3
+author:              Nick Chapman
+maintainer:          nic@amadido.co.uk
+github:              Nick-Chapman/doom.git
+
+extra-source-files:
+- README.md
+
+dependencies:
+- ansi-terminal
+- array
+- async
+- base >= 4.7 && < 5
+- bytestring
+- clock
+- containers
+- extra
+- haskeline
+- mtl
+- split
+- text
+- time
+- transformers
+- word8
+
+default-extensions:
+- BangPatterns
+- DataKinds
+- DeriveFunctor
+- DuplicateRecordFields
+- EmptyCase
+- FlexibleContexts
+- GADTs
+- GeneralizedNewtypeDeriving
+- InstanceSigs
+- LambdaCase
+- MultiWayIf
+- NamedFieldPuns
+- NondecreasingIndentation
+- NumericUnderscores
+- QualifiedDo
+- RankNTypes
+- RecursiveDo
+- ScopedTypeVariables
+- StandaloneDeriving
+- TypeApplications
+- TypeFamilies
+- UndecidableInstances
+
+ghc-options:
+- -Werror
+- -Wall
+- -Wno-name-shadowing
+
+library:
+  source-dirs: src
+
+executables:
+  main.exe:
+    main:                app/main.hs
+    dependencies:        doom
