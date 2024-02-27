@@ -87,40 +87,31 @@ readThings bs Entry{filepos,size,name} = do
   let nbytes = 10
   assertEq name "THINGS" $ do
   i <- [0.. size `div` nbytes - 1]
-  pure (readThing bs (fromIntegral (filepos + nbytes * i)))
-
-readThing :: ByteString -> Offset -> Thing
-readThing bs off = do
+  let off = fromIntegral (filepos + nbytes * i)
   let x = readInt16 bs off
   let y = readInt16 bs (off+2)
   let angle = readInt16 bs (off+4)
-  Thing { pos = V2 x y, angle }
+  pure Thing { pos = V2 x y, angle }
 
 readVertexes :: ByteString -> Entry -> [Vertex]
 readVertexes bs Entry{filepos,size,name} = do
   let nbytes = 4
   assertEq name "VERTEXES" $ do
   i <- [0.. size `div` nbytes - 1]
-  pure (readVertex bs (fromIntegral (filepos + nbytes * i)))
+  let off = fromIntegral (filepos + nbytes * i)
+  let x = readInt16 bs off
+  let y = readInt16 bs (off+2)
+  pure (V2 x y)
 
 readLinedefs :: (Int16 -> Vertex) -> ByteString -> Entry -> [Linedef]
 readLinedefs lookV bs Entry{filepos,size,name} = do
   let nbytes = 14
   assertEq name "LINEDEFS" $ do
   i <- [0.. size `div` nbytes - 1]
-  pure (readLinedef lookV bs (fromIntegral (filepos + nbytes * i)))
-
-readLinedef :: (Int16 -> Vertex) -> ByteString -> Offset -> Linedef
-readLinedef lookV bs off = do
+  let off = fromIntegral (filepos + nbytes * i)
   let start = lookV $ readInt16 bs off
   let end = lookV $ readInt16 bs (off+2)
-  Linedef { start, end }
-
-readVertex :: ByteString -> Offset -> Vertex
-readVertex bs off = do
-  let x = readInt16 bs off
-  let y = readInt16 bs (off+2)
-  V2 x y
+  pure Linedef { start, end }
 
 type Offset = Int
 
