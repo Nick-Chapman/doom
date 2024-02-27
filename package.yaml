@@ -19,6 +19,7 @@ dependencies:
 - containers
 - extra
 - haskeline
+- linear
 - mtl
 - sdl2
 - split

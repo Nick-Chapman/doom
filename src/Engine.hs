@@ -6,8 +6,9 @@ module Engine
 import Control.Concurrent (threadDelay)
 import Foreign.C.Types (CInt)
 import GHC.Word (Word8)
-import Pic (Pic,Point)
-import SDL (Renderer,V2(..),V4(..),($=))
+import Linear.V4 (V4(..))
+import Pic (Pic,V2(..))
+import SDL (Renderer,($=))
 import Wad (Wad,Vertex,Int16)
 import qualified Data.Text as Text (pack)
 import qualified DrawMap (draw)
@@ -18,14 +19,18 @@ data Conf = Conf
   { resX :: Int16
   , resY :: Int16
   , sf :: CInt
-  , offset :: Point
-  , scale :: Point
+  , offset :: V2 Float
+  , scale :: V2 Float
   } deriving Show
 
 type BB = (Vertex,Vertex)
 
 initConf :: BB -> Conf
-initConf bb = Conf { resX, resY, sf, offset = (offsetX,offsetY), scale = (scaleX,scaleY) }
+initConf bb = Conf
+  { resX, resY, sf
+  , offset = V2 offsetX offsetY
+  , scale = V2 scaleX scaleY
+  }
   where
     sf = 4
     border = 0
@@ -76,15 +81,15 @@ drawEverything conf assets@DrawAssets{renderer=r} pic = do
   renderPic conf assets pic
   SDL.present r
   where
-    darkGrey = rgb (20,20,20)
+    darkGrey = rgb (50,50,50)
 
 renderPic :: Conf -> DrawAssets -> Pic () -> IO ()
 renderPic Conf{sf,offset,scale} DrawAssets{renderer=r} = loop
   where
     yellow = rgb (255,255,0)
 
-    remap :: Point -> Point
-    remap p = (p `add` offset) `mul` scale
+    remap :: V2 Float -> V2 Float
+    remap p = (p + offset) * scale
 
     loop :: Pic a -> IO a
     loop pic = case pic of
@@ -92,7 +97,7 @@ renderPic Conf{sf,offset,scale} DrawAssets{renderer=r} = loop
       Pic.Bind m f -> do b <- loop m; loop (f b)
       Pic.Dot p -> do
         let p' = remap p
-        let (x0,y0) = p'
+        let V2 x0 y0 = p'
         setColor r yellow
         let x = sf * floor x0
         let y = sf * floor y0
@@ -107,9 +112,3 @@ rgb (r,g,b) = V4 r g b 255
 
 setColor :: SDL.Renderer -> Colour -> IO ()
 setColor r c = SDL.rendererDrawColor r $= c
-
-add :: Point -> Point -> Point
-add (x1,y1) (x2,y2) = (x1+x2,y1+y2)
-
-mul :: Point -> Point -> Point
-mul (x1,y1) (x2,y2) = (x1*x2,y1*y2)

@@ -3,7 +3,7 @@ module DrawMap
   ( draw
   ) where
 
-import Pic (Pic(..))
+import Pic (Pic(..),V2(..))
 import Wad (Wad(..),Level(..),Vertex)
 
 draw :: Wad -> Pic ()
@@ -16,4 +16,4 @@ drawLevel Level{vertexes} = do
 
 drawVertex :: Vertex -> Pic ()
 drawVertex (x,y) =
-  Dot (fromIntegral x, fromIntegral y)
+  Dot (V2 (fromIntegral x) (fromIntegral y))
