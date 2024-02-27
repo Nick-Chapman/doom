@@ -1,8 +1,10 @@
-module Top where
+
+module Top (main) where
 
 import qualified Engine
-import qualified Wad
+
 import Wad (Wad(..),Level(..),V2(..))
+import qualified Wad (load)
 
 main :: IO ()
 main = do

@@ -2,6 +2,7 @@
 module Wad
   ( load, Wad(..), Level(..)
   , Thing(..), Linedef(..), Vertex, V2(..), Int16
+  , Seg(..), Subsector(..), Node(..)
   ) where
 
 import Data.Bits (shiftL)
