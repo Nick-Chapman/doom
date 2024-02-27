@@ -50,7 +50,7 @@ run :: Conf -> Wad -> IO ()
 run conf wad = do
   SDL.initializeAll
   let winConfig = SDL.defaultWindow { SDL.windowInitialSize = windowSize conf }
-  win <- SDL.createWindow (Text.pack "Wolf") $ winConfig
+  win <- SDL.createWindow (Text.pack "Doom") $ winConfig
   renderer <- SDL.createRenderer win (-1) SDL.defaultRenderer
   let assets = DrawAssets { win, renderer }
   let

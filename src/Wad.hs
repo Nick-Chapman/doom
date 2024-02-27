@@ -13,6 +13,9 @@ import Linear.V2 (V2(..))
 import qualified Data.ByteString as ByteString
 import qualified Data.Map as Map
 
+load :: FilePath -> IO Wad
+load path = readWad <$> ByteString.readFile path
+
 data Wad = Wad
   { identification :: String
   , numlumps :: Int32
@@ -32,6 +35,9 @@ data Level = Level
   { things :: [Thing]
   , linedefs :: [Linedef]
   , vertexes :: [Vertex]
+  , segs :: [Seg]
+  , subsectors :: [Subsector]
+  , nodes :: [Node]
   } deriving Show
 
 data Thing = Thing
@@ -48,8 +54,27 @@ data Linedef = Linedef
 
 type Vertex = V2 Int16
 
-load :: FilePath -> IO Wad
-load path = readWad <$> ByteString.readFile path
+data Seg = Seg
+  { startId :: Int16
+  , endId :: Int16
+  , angle :: Int16
+  , linedefId :: Int16
+  , direction :: Bool
+  , offset :: Int16
+  } deriving Show
+
+data Subsector = Subsector
+  { count :: Int16
+  , first :: Int16
+  } deriving Show
+
+data Node = Node
+  { start :: Vertex
+  , delta :: Vertex
+  , right :: Int16
+  , left :: Int16
+  -- TODO: 2x bounding box
+  } deriving Show
 
 readWad :: ByteString -> Wad
 readWad bs = do
@@ -80,7 +105,12 @@ readLevel bs dict i = do
   let m = Map.fromList (zip [0..] vertexes)
   let lookV n = maybe undefined id (Map.lookup n m)
   let linedefs = readLinedefs lookV bs (dict!!(i+2))
-  Level { things, linedefs, vertexes }
+  -- 3:SIDEDEFS
+  let segs = readSegs bs (dict!!(i+5))
+  let subsectors = readSubsectors bs (dict!!(i+6))
+  let nodes = readNodes bs (dict!!(i+7))
+  -- 8:SECTORS, 9:REJECT, 10:BLOCKMAP
+  Level { things, linedefs, vertexes, segs, subsectors, nodes }
 
 readThings :: ByteString -> Entry -> [Thing]
 readThings bs Entry{filepos,size,name} = do
@@ -112,6 +142,54 @@ readLinedefs lookV bs Entry{filepos,size,name} = do
   let start = lookV $ readInt16 bs off
   let end = lookV $ readInt16 bs (off+2)
   pure Linedef { start, end }
+
+readSegs :: ByteString -> Entry -> [Seg]
+readSegs bs Entry{filepos,size,name} = do
+  let nbytes = 12
+  assertEq name "SEGS" $ do
+  i <- [0.. size `div` nbytes - 1]
+  let off = fromIntegral (filepos + nbytes * i)
+  let startId = readInt16 bs off
+  let endId = readInt16 bs (off+2)
+  let angle = readInt16 bs (off+4)
+  let linedefId = readInt16 bs (off+6)
+  let direction = readBool bs (off+8)
+  let offset = readInt16 bs (off+10)
+  pure Seg { startId, endId, angle, linedefId, direction, offset }
+
+readSubsectors :: ByteString -> Entry -> [Subsector]
+readSubsectors bs Entry{filepos,size,name} = do
+  let nbytes = 4
+  assertEq name "SSECTORS" $ do
+  i <- [0.. size `div` nbytes - 1]
+  let off = fromIntegral (filepos + nbytes * i)
+  let count = readInt16 bs off
+  let first = readInt16 bs (off+2)
+  pure Subsector { count, first }
+
+readNodes :: ByteString -> Entry -> [Node]
+readNodes bs Entry{filepos,size,name} = do
+  let nbytes = 28
+  assertEq name "NODES" $ do
+  i <- [0.. size `div` nbytes - 1]
+  let off = fromIntegral (filepos + nbytes * i)
+  let startX = readInt16 bs off
+  let startY = readInt16 bs (off+2)
+  let start = V2 startX startY
+  let deltaX = readInt16 bs (off+4)
+  let deltaY = readInt16 bs (off+6)
+  let delta = V2 deltaX deltaY
+  -- 16 bytes for bounding boxes
+  let right = readInt16 bs (off+24)
+  let left = readInt16 bs (off+26)
+  pure Node { start, delta, right, left }
+
+readBool :: ByteString -> Offset -> Bool
+readBool bs off =
+  case readInt16 bs off of
+    1 -> True
+    0 -> False
+    n -> error (show ("readBool",n))
 
 type Offset = Int
 
