@@ -31,7 +31,7 @@ initConf bb = Conf
   , scale = V2 scaleX scaleY
   }
   where
-    sf = 5
+    sf = 3
     border = 10
     resX = 320
     resY = 200
