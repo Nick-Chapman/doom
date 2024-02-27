@@ -15,5 +15,5 @@ drawLevel Level{vertexes} = do
   mapM_ drawVertex vertexes
 
 drawVertex :: Vertex -> Pic ()
-drawVertex (x,y) =
+drawVertex (V2 x y) =
   Dot (V2 (fromIntegral x) (fromIntegral y))

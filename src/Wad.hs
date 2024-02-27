@@ -1,6 +1,7 @@
 
 module Wad
-  ( load, Wad(..), Level(..), Vertex, Int16
+  ( load, Wad(..), Level(..)
+  , Vertex, V2(..), Int16
   ) where
 
 import Data.Bits (shiftL)
@@ -8,6 +9,7 @@ import Data.ByteString (ByteString,indexMaybe)
 import Data.ByteString.Internal (w2c)
 import Data.Int (Int16,Int32)
 import Data.Word (Word8)
+import Linear.V2 (V2(..))
 import qualified Data.ByteString as ByteString
 
 data Wad = Wad
@@ -28,7 +30,7 @@ data Level = Level
   { vertexes :: [Vertex]
   } deriving Show
 
-type Vertex = (Int16,Int16)
+type Vertex = V2 Int16
 
 load :: FilePath -> IO Wad
 load path = readWad <$> ByteString.readFile path
@@ -70,7 +72,7 @@ readVertex :: ByteString -> Offset -> Vertex
 readVertex bs off = do
   let x = readInt16 bs off
   let y = readInt16 bs (off+2)
-  (x,y)
+  V2 x y
 
 type Offset = Int
 
