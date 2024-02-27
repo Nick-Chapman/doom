@@ -3,7 +3,7 @@ module DrawMap
   ( draw
   ) where
 
-import Pic (Pic(..))
+import Pic (Pic(..),rgb)
 import Wad (Wad(..),Level(..),Linedef(..),Vertex,V2(..),Int16)
 
 draw :: Wad -> Pic ()
@@ -16,12 +16,15 @@ drawLevel Level{linedefs,vertexes} = do
   mapM_ drawVertex vertexes -- vertexes on top of lines
   pure ()
 
-unquantize :: V2 Int16 -> V2 Float -- TODO: wrong/silly!
+unquantize :: V2 Int16 -> V2 Float
 unquantize = fmap fromIntegral
 
 drawVertex :: Vertex -> Pic ()
-drawVertex v = Dot (unquantize v)
+drawVertex v = do
+  let yellow = rgb (255,255,0)
+  Dot yellow (unquantize v)
 
 drawLinedef :: Linedef -> Pic ()
 drawLinedef Linedef{start,end} = do
-  Line (unquantize start) (unquantize end)
+  let red = rgb (255,0,0)
+  Line red (unquantize start) (unquantize end)

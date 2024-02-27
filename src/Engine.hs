@@ -5,19 +5,18 @@ module Engine
 
 import Control.Concurrent (threadDelay)
 import Foreign.C.Types (CInt)
-import GHC.Word (Word8)
-import Linear.V4 (V4(..))
-import Pic (Pic,V2(..))
+import Pic (Pic,V2(..),Colour,rgb)
 import SDL (Renderer,($=))
-import Wad (Wad,Vertex,Int16)
+import Wad (Wad,Vertex)
 import qualified Data.Text as Text (pack)
 import qualified DrawMap (draw)
 import qualified Pic (Pic(..))
 import qualified SDL
 
 data Conf = Conf
-  { resX :: Int16
-  , resY :: Int16
+  { resX :: CInt
+  , resY :: CInt
+  , border :: CInt
   , sf :: CInt
   , offset :: V2 Float
   , scale :: V2 Float
@@ -27,13 +26,13 @@ type BB = (Vertex,Vertex)
 
 initConf :: BB -> Conf
 initConf bb = Conf
-  { resX, resY, sf
+  { resX, resY, border, sf
   , offset = V2 offsetX offsetY
   , scale = V2 scaleX scaleY
   }
   where
-    sf = 4
-    border = 0
+    sf = 5
+    border = 10
     resX = 320
     resY = 200
     (V2 minX minY,V2 maxX maxY) = bb
@@ -41,8 +40,8 @@ initConf bb = Conf
     sizeY = maxY - minY + 1
     scaleX = fromIntegral (resX - 2*border) / fromIntegral sizeX
     scaleY = fromIntegral (resY - 2*border) / fromIntegral sizeY
-    offsetX = fromIntegral (-minX) + fromIntegral border/scaleX
-    offsetY =  fromIntegral (-minY) + fromIntegral border/scaleY
+    offsetX = fromIntegral (-minX)
+    offsetY =  fromIntegral (-minY)
 
 windowSize :: Conf -> V2 CInt
 windowSize Conf{sf,resX,resY} = V2 (sf * fromIntegral resX) (sf * fromIntegral resY)
@@ -79,6 +78,7 @@ drawEverything conf assets@DrawAssets{renderer=r} pic = do
   setColor r darkGrey
   SDL.clear r
   setColor r white -- in case we forget to set when rendering Pic
+  SDL.drawRect r Nothing
   renderPic conf assets pic
   SDL.present r
   where
@@ -86,39 +86,28 @@ drawEverything conf assets@DrawAssets{renderer=r} pic = do
     white = rgb (255,255,255)
 
 renderPic :: Conf -> DrawAssets -> Pic () -> IO ()
-renderPic Conf{sf,offset,scale} DrawAssets{renderer=r} = loop
+renderPic Conf{sf,border,offset,scale} DrawAssets{renderer=r} = loop
   where
-    yellow = rgb (255,255,0) -- TODO: colours should come with Dot/Line
-    red = rgb (255,0,0) -- TODO: colours should come with Dot/Line
-
     remap :: V2 Float -> V2 Float
     remap p = (p + offset) * scale
 
     quantize :: Float -> CInt
-    quantize a = sf * floor a
+    quantize a = sf * (border + floor a)
 
     loop :: Pic a -> IO a
     loop pic = case pic of
       Pic.Ret a -> pure a
       Pic.Bind m f -> do b <- loop m; loop (f b)
-      Pic.Dot p -> do
+      Pic.Dot col p -> do
+        setColor r col
         let p' = fmap quantize (remap p)
-        let rect = SDL.Rectangle (SDL.P p') (V2 sf sf) -- TODO: circle would be nice
-        setColor r yellow
-        SDL.fillRect r (Just rect)
-
-      Pic.Line a b -> do
+        --SDL.drawPoint r (SDL.P p')
+        SDL.drawRect r (Just (SDL.Rectangle (SDL.P p') (V2 sf sf)))
+      Pic.Line col a b -> do
+        setColor r col
         let a' = fmap quantize (remap a)
         let b' = fmap quantize (remap b)
-        setColor r red
         SDL.drawLine r (SDL.P a') (SDL.P b')
-
-
-type RGB = (Word8,Word8,Word8)
-type Colour = V4 Word8
-
-rgb :: RGB -> Colour
-rgb (r,g,b) = V4 r g b 255
 
 setColor :: SDL.Renderer -> Colour -> IO ()
 setColor r c = SDL.rendererDrawColor r $= c

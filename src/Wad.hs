@@ -12,6 +12,7 @@ import Data.Int (Int16,Int32)
 import Data.Word (Word8)
 import Linear.V2 (V2(..))
 import qualified Data.ByteString as ByteString
+import qualified Data.Map as Map
 
 data Wad = Wad
   { identification :: String
@@ -29,7 +30,7 @@ data Entry = Entry
 
 data Level = Level
   { linedefs :: [Linedef]
-  , vertexes :: [Vertex] -- TODO: Array?
+  , vertexes :: [Vertex]
   } deriving Show
 
 type Vertex = V2 Int16
@@ -66,7 +67,8 @@ readEntry bs off = do
 readLevel :: ByteString -> [Entry] -> Int -> Level
 readLevel bs dict i = do
   let vertexes = readVertexes bs (dict!!(i+4))
-  let lookV n = vertexes!!(fromIntegral n) -- TODO: use Map
+  let m = Map.fromList (zip [0..] vertexes)
+  let lookV n = maybe undefined id (Map.lookup n m)
   let linedefs = readLinedefs lookV bs (dict!!(i+2))
   Level { linedefs, vertexes }
 
