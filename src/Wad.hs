@@ -1,6 +1,7 @@
 
 module Wad
   ( load, Wad(..), Level(..)
+  , Linedef(..)
   , Vertex, V2(..), Int16
   ) where
 
@@ -27,10 +28,16 @@ data Entry = Entry
   } deriving Show
 
 data Level = Level
-  { vertexes :: [Vertex]
+  { linedefs :: [Linedef]
+  , vertexes :: [Vertex] -- TODO: Array?
   } deriving Show
 
 type Vertex = V2 Int16
+
+data Linedef = Linedef
+  { start :: Vertex
+  , end :: Vertex
+  } deriving Show
 
 load :: FilePath -> IO Wad
 load path = readWad <$> ByteString.readFile path
@@ -59,7 +66,16 @@ readEntry bs off = do
 readLevel :: ByteString -> [Entry] -> Int -> Level
 readLevel bs dict i = do
   let vertexes = readVertexes bs (dict!!(i+4))
-  Level { vertexes }
+  let lookV n = vertexes!!(fromIntegral n) -- TODO: use Map
+  let linedefs = readLinedefs lookV bs (dict!!(i+2))
+  Level { linedefs, vertexes }
+
+readLinedefs :: (Int16 -> Vertex) -> ByteString -> Entry -> [Linedef]
+readLinedefs lookV bs Entry{filepos,size,name} = do
+  let nbytesV = 14
+  assertEq name "LINEDEFS" $ do
+  i <- [0.. size `div` nbytesV - 1]
+  pure (readLinedef lookV bs (fromIntegral (filepos + nbytesV * i)))
 
 readVertexes :: ByteString -> Entry -> [Vertex]
 readVertexes bs Entry{filepos,size,name} = do
@@ -67,6 +83,13 @@ readVertexes bs Entry{filepos,size,name} = do
   assertEq name "VERTEXES" $ do
   i <- [0.. size `div` nbytesV - 1]
   pure (readVertex bs (fromIntegral (filepos + nbytesV * i)))
+
+readLinedef :: (Int16 -> Vertex) -> ByteString -> Offset -> Linedef
+readLinedef lookV bs off = do
+  let start = lookV $ readInt16 bs off
+  let end = lookV $ readInt16 bs (off+2)
+  -- TODO: 5 more fields
+  Linedef { start, end }
 
 readVertex :: ByteString -> Offset -> Vertex
 readVertex bs off = do

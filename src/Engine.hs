@@ -78,31 +78,41 @@ drawEverything :: Conf -> DrawAssets -> Pic () -> IO ()
 drawEverything conf assets@DrawAssets{renderer=r} pic = do
   setColor r darkGrey
   SDL.clear r
+  setColor r white -- in case we forget to set when rendering Pic
   renderPic conf assets pic
   SDL.present r
   where
     darkGrey = rgb (50,50,50)
+    white = rgb (255,255,255)
 
 renderPic :: Conf -> DrawAssets -> Pic () -> IO ()
 renderPic Conf{sf,offset,scale} DrawAssets{renderer=r} = loop
   where
-    yellow = rgb (255,255,0)
+    yellow = rgb (255,255,0) -- TODO: colours should come with Dot/Line
+    red = rgb (255,0,0) -- TODO: colours should come with Dot/Line
 
     remap :: V2 Float -> V2 Float
     remap p = (p + offset) * scale
+
+    quantize :: Float -> CInt
+    quantize a = sf * floor a
 
     loop :: Pic a -> IO a
     loop pic = case pic of
       Pic.Ret a -> pure a
       Pic.Bind m f -> do b <- loop m; loop (f b)
       Pic.Dot p -> do
-        let p' = remap p
-        let V2 x0 y0 = p'
+        let p' = fmap quantize (remap p)
+        let rect = SDL.Rectangle (SDL.P p') (V2 sf sf) -- TODO: circle would be nice
         setColor r yellow
-        let x = sf * floor x0
-        let y = sf * floor y0
-        let rect = SDL.Rectangle (SDL.P (V2 x y)) (V2 sf sf)
         SDL.fillRect r (Just rect)
+
+      Pic.Line a b -> do
+        let a' = fmap quantize (remap a)
+        let b' = fmap quantize (remap b)
+        setColor r red
+        SDL.drawLine r (SDL.P a') (SDL.P b')
+
 
 type RGB = (Word8,Word8,Word8)
 type Colour = V4 Word8
