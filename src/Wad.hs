@@ -1,6 +1,6 @@
 
 module Wad
-  ( load, Wad(..), Level(..), Vertex
+  ( load, Wad(..), Level(..), Vertex, Int16
   ) where
 
 import Data.Bits (shiftL)
