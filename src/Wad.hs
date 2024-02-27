@@ -1,8 +1,7 @@
 
 module Wad
   ( load, Wad(..), Level(..)
-  , Linedef(..)
-  , Vertex, V2(..), Int16
+  , Thing(..), Linedef(..), Vertex, V2(..), Int16
   ) where
 
 import Data.Bits (shiftL)
@@ -20,6 +19,7 @@ data Wad = Wad
   , infotableofs :: Int32
   , dict :: [Entry]
   , level1 :: Level
+  , player :: Thing
   } deriving Show
 
 data Entry = Entry
@@ -29,16 +29,24 @@ data Entry = Entry
   } deriving Show
 
 data Level = Level
-  { linedefs :: [Linedef]
+  { things :: [Thing]
+  , linedefs :: [Linedef]
   , vertexes :: [Vertex]
   } deriving Show
 
-type Vertex = V2 Int16
+data Thing = Thing
+  { pos :: V2 Int16
+  , angle :: Int16
+  -- TODO: 3 more fields
+  } deriving Show
 
 data Linedef = Linedef
   { start :: Vertex
   , end :: Vertex
+  -- TODO: 5 more fields
   } deriving Show
+
+type Vertex = V2 Int16
 
 load :: FilePath -> IO Wad
 load path = readWad <$> ByteString.readFile path
@@ -50,8 +58,9 @@ readWad bs = do
   let infotableofs = readInt32 bs 8
   let dict = readDict bs (fromIntegral infotableofs) (fromIntegral numlumps)
   let getEntryIndex name = head [ i | (i,Entry{name=n}) <- zip [0..] dict, name==n ]
-  let level1 = readLevel bs dict (getEntryIndex "E1M1")
-  Wad { identification, numlumps, infotableofs, dict, level1 }
+  let level1@Level{things} = readLevel bs dict (getEntryIndex "E1M1")
+  let player = things!!0
+  Wad { identification, numlumps, infotableofs, dict, level1, player }
 
 readDict :: ByteString -> Offset -> Int -> [Entry]
 readDict bs off n = do
@@ -66,31 +75,45 @@ readEntry bs off = do
 
 readLevel :: ByteString -> [Entry] -> Int -> Level
 readLevel bs dict i = do
+  let things = readThings bs (dict!!(i+1))
   let vertexes = readVertexes bs (dict!!(i+4))
   let m = Map.fromList (zip [0..] vertexes)
   let lookV n = maybe undefined id (Map.lookup n m)
   let linedefs = readLinedefs lookV bs (dict!!(i+2))
-  Level { linedefs, vertexes }
+  Level { things, linedefs, vertexes }
 
-readLinedefs :: (Int16 -> Vertex) -> ByteString -> Entry -> [Linedef]
-readLinedefs lookV bs Entry{filepos,size,name} = do
-  let nbytesV = 14
-  assertEq name "LINEDEFS" $ do
-  i <- [0.. size `div` nbytesV - 1]
-  pure (readLinedef lookV bs (fromIntegral (filepos + nbytesV * i)))
+readThings :: ByteString -> Entry -> [Thing]
+readThings bs Entry{filepos,size,name} = do
+  let nbytes = 10
+  assertEq name "THINGS" $ do
+  i <- [0.. size `div` nbytes - 1]
+  pure (readThing bs (fromIntegral (filepos + nbytes * i)))
+
+readThing :: ByteString -> Offset -> Thing
+readThing bs off = do
+  let x = readInt16 bs off
+  let y = readInt16 bs (off+2)
+  let angle = readInt16 bs (off+4)
+  Thing { pos = V2 x y, angle }
 
 readVertexes :: ByteString -> Entry -> [Vertex]
 readVertexes bs Entry{filepos,size,name} = do
-  let nbytesV = 4
+  let nbytes = 4
   assertEq name "VERTEXES" $ do
-  i <- [0.. size `div` nbytesV - 1]
-  pure (readVertex bs (fromIntegral (filepos + nbytesV * i)))
+  i <- [0.. size `div` nbytes - 1]
+  pure (readVertex bs (fromIntegral (filepos + nbytes * i)))
+
+readLinedefs :: (Int16 -> Vertex) -> ByteString -> Entry -> [Linedef]
+readLinedefs lookV bs Entry{filepos,size,name} = do
+  let nbytes = 14
+  assertEq name "LINEDEFS" $ do
+  i <- [0.. size `div` nbytes - 1]
+  pure (readLinedef lookV bs (fromIntegral (filepos + nbytes * i)))
 
 readLinedef :: (Int16 -> Vertex) -> ByteString -> Offset -> Linedef
 readLinedef lookV bs off = do
   let start = lookV $ readInt16 bs off
   let end = lookV $ readInt16 bs (off+2)
-  -- TODO: 5 more fields
   Linedef { start, end }
 
 readVertex :: ByteString -> Offset -> Vertex

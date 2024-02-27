@@ -86,13 +86,19 @@ drawEverything conf assets@DrawAssets{renderer=r} pic = do
     white = rgb (255,255,255)
 
 renderPic :: Conf -> DrawAssets -> Pic () -> IO ()
-renderPic Conf{sf,border,offset,scale} DrawAssets{renderer=r} = loop
+renderPic Conf{resY,sf,border,offset,scale} DrawAssets{renderer=r} = loop
   where
+
     remap :: V2 Float -> V2 Float
     remap p = (p + offset) * scale
 
     quantize :: Float -> CInt
-    quantize a = sf * (border + floor a)
+    quantize a = (border + floor a)
+
+    flipY (V2 x y) = V2 x (resY - y)
+
+    snap :: V2 Float  -> V2 CInt
+    snap = (V2 sf sf *) . flipY . fmap quantize . remap
 
     loop :: Pic a -> IO a
     loop pic = case pic of
@@ -100,13 +106,13 @@ renderPic Conf{sf,border,offset,scale} DrawAssets{renderer=r} = loop
       Pic.Bind m f -> do b <- loop m; loop (f b)
       Pic.Dot col p -> do
         setColor r col
-        let p' = fmap quantize (remap p)
+        let p' = snap p
         --SDL.drawPoint r (SDL.P p')
         SDL.drawRect r (Just (SDL.Rectangle (SDL.P p') (V2 sf sf)))
       Pic.Line col a b -> do
         setColor r col
-        let a' = fmap quantize (remap a)
-        let b' = fmap quantize (remap b)
+        let a' = snap a
+        let b' = snap b
         SDL.drawLine r (SDL.P a') (SDL.P b')
 
 setColor :: SDL.Renderer -> Colour -> IO ()

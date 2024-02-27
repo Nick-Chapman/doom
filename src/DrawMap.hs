@@ -4,11 +4,17 @@ module DrawMap
   ) where
 
 import Pic (Pic(..),rgb)
-import Wad (Wad(..),Level(..),Linedef(..),Vertex,V2(..),Int16)
+import Wad (Wad(..),Level(..),Thing(..),Linedef(..),Vertex,V2(..),Int16)
 
 draw :: Wad -> Pic ()
-draw Wad{level1} = do
+draw Wad{level1,player} = do
   drawLevel level1
+  drawPlayer player
+
+drawPlayer :: Thing -> Pic ()
+drawPlayer Thing{pos,angle=_} = do
+  let blue = rgb (0,0,255)
+  Dot blue (unquantize pos)
 
 drawLevel :: Level -> Pic ()
 drawLevel Level{linedefs,vertexes} = do
