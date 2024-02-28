@@ -5,7 +5,7 @@ module Engine
 
 import Control.Concurrent (threadDelay)
 import Foreign.C.Types (CInt)
-import Pic (Pic,V2(..),Colour,rgb)
+import Pic (Pic,V2(..),Colour,darkGrey,white)
 import SDL (Renderer,($=))
 import Wad (Wad,Vertex)
 import qualified Data.Text as Text (pack)
@@ -31,7 +31,7 @@ initConf bb = Conf
   , scale = V2 scaleX scaleY
   }
   where
-    sf = 4
+    sf = 5
     border = 10
     resX = 320
     resY = 200
@@ -51,7 +51,8 @@ run conf wad = do
   SDL.initializeAll
   let winConfig = SDL.defaultWindow { SDL.windowInitialSize = windowSize conf }
   win <- SDL.createWindow (Text.pack "Doom") $ winConfig
-  renderer <- SDL.createRenderer win (-1) SDL.defaultRenderer
+  renderer <- SDL.createRenderer win (-1)
+    SDL.defaultRenderer { SDL.rendererType = SDL.UnacceleratedRenderer }
   let assets = DrawAssets { win, renderer }
   let
     loop :: Int -> IO ()
@@ -81,14 +82,10 @@ drawEverything conf assets@DrawAssets{renderer=r} pic = do
   SDL.drawRect r Nothing
   renderPic conf assets pic
   SDL.present r
-  where
-    darkGrey = rgb (50,50,50)
-    white = rgb (255,255,255)
 
 renderPic :: Conf -> DrawAssets -> Pic () -> IO ()
 renderPic Conf{resY,sf,border,offset,scale} DrawAssets{renderer=r} = loop
   where
-
     remap :: V2 Float -> V2 Float
     remap p = (p + offset) * scale
 
@@ -104,16 +101,23 @@ renderPic Conf{resY,sf,border,offset,scale} DrawAssets{renderer=r} = loop
     loop pic = case pic of
       Pic.Ret a -> pure a
       Pic.Bind m f -> do b <- loop m; loop (f b)
+      Pic.Pause -> do
+        SDL.present r
+        threadDelay 1000000
       Pic.Dot col p -> do
         setColor r col
         let p' = snap p
-        --SDL.drawPoint r (SDL.P p')
         SDL.drawRect r (Just (SDL.Rectangle (SDL.P p') (V2 sf sf)))
       Pic.Line col a b -> do
         setColor r col
         let a' = snap a
         let b' = snap b
         SDL.drawLine r (SDL.P a') (SDL.P b')
+      Pic.Rect col p q -> do
+        setColor r col
+        let p' = snap p
+        let q' = snap q
+        SDL.drawRect r (Just (SDL.Rectangle (SDL.P p') (q' - p')))
 
 setColor :: SDL.Renderer -> Colour -> IO ()
 setColor r c = SDL.rendererDrawColor r $= c

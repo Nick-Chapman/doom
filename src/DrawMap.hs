@@ -3,22 +3,46 @@ module DrawMap
   ( draw
   ) where
 
-import Pic (Pic(..),rgb,Colour)
-import Wad (Wad(..),Level(..),Thing(..),Linedef(..),Vertex,V2(..),Int16
-           ,Node(..),Subsector(..),Seg(..))
+import Pic (Pic(..),Colour,V2(..),grey,magenta,yellow,green,red,blue)
+import Wad (Wad(..),Level(..),Thing(..),Linedef(..),Vertex,Int16
+           ,Node(..),BB(..),Subsector(..))
 import Data.Word (Word16)
 import Data.Bits (shiftL)
 
 draw :: Wad -> Pic ()
-draw Wad{level1,player} = do
-  let lds = collectLDsL level1
-  let pickLD n = n `elem` lds
-  drawLevel pickLD level1
+draw Wad{level1=level,player} = do
+  let Level{linedefs,vertexes} = level
+  drawLines linedefs
+  let _ = mapM_ drawVertex vertexes
   drawPlayer 45 player
+  drawTreeToPlayer (reifyTree level)
+  where
+    drawTreeToPlayer :: Tree -> Pic ()
+    drawTreeToPlayer = \case
+      Branch l _n r -> do
+        drawNode _n
+        if onBackSideForPlayer player _n
+          then drawTreeToPlayer l -- back: GO left
+          else drawTreeToPlayer r -- front: GO right
+      Leaf ss ->
+        drawSS ss
+
+onBackSideForPlayer :: Thing -> Node -> Bool
+onBackSideForPlayer Thing{pos=player} Node{start=partition,delta} = do
+  cross (player - partition) delta <= 0
+
+cross :: V2 Int16 -> V2 Int16 -> Int -- TODO: aggh, Int16 lose precision!
+cross (V2 x1 y1) (V2 x2 y2) =
+  f x1*f y2 - f x2*f y1
+  where f = fromIntegral
+
+drawLines :: [Linedef] -> Pic ()
+drawLines linedefs = do
+  sequence_ [ drawLinedef grey ld | ld <- linedefs ]
+  pure ()
 
 drawPlayer :: Int16 -> Thing -> Pic ()
 drawPlayer h_fov Thing{pos,angle} = do
-  let magenta = rgb (255,0,255)
   Dot magenta (unquantize pos)
   let len = 1000
   let a = angle
@@ -37,43 +61,46 @@ drawVec col pos angle len = do
   where
     radians n = fromIntegral n * pi / 180
 
-drawLevel :: (Int16 -> Bool) -> Level -> Pic ()
-drawLevel pickLD Level{linedefs,vertexes} = do
-  let red = rgb (255,0,0)
-  let green = rgb (0,255,0)
-  let col ld = if pickLD ld then green else red
-  sequence_ [ drawLinedef ld (col i) | (i,ld) <- zip [0..] linedefs ]
-  mapM_ drawVertex vertexes -- vertexes on top of lines
-  pure ()
-
 unquantize :: V2 Int16 -> V2 Float
 unquantize = fmap fromIntegral
 
 drawVertex :: Vertex -> Pic ()
 drawVertex v = do
-  let yellow = rgb (255,255,0)
   Dot yellow (unquantize v)
 
-drawLinedef :: Linedef -> Colour -> Pic ()
-drawLinedef Linedef{start,end} col = do
+drawLinedef :: Colour -> Linedef -> Pic ()
+drawLinedef col Linedef{start,end} = do
   Line col (unquantize start) (unquantize end)
 
-collectLDsL :: Level -> [Int16]
-collectLDsL Level{segs,subsectors,nodes} = tNodeJustL [] (nodes!!max)
+reifyTree :: Level -> Tree
+reifyTree Level{subsectors,nodes} = tNode (nodes!!(length nodes - 1))
   where
-    max = length nodes - 1
-
-    tNodeJustL :: [Int16] -> Node -> [Int16]
-    tNodeJustL acc Node{left} = tId acc left
-
-    tNode :: [Int16] -> Node -> [Int16]
-    tNode acc Node{right,left} = tId (tId acc left) right
-
-    tId :: [Int16] -> Int16 -> [Int16]
-    tId acc id =
-      if id >= 0 then tNode acc (nodes!! fromIntegral id) else do
+    tNode :: Node -> Tree
+    tNode n@Node{rightChildId,leftChildId} = Branch (tId leftChildId) n (tId rightChildId)
+    tId :: Int16 -> Tree
+    tId id = do
+      if id >= 0 then tNode (nodes!! fromIntegral id) else do
         let ssId :: Word16 = (1 `shiftL` 15) + fromIntegral id
-        let Subsector{first,count} = subsectors!!(fromIntegral ssId)
-        let sssegs = [ segs!!(fromIntegral i) | i <- [first..first+count-1] ]
-        let lds = [ ld | Seg{linedefId=ld} <- sssegs ]
-        lds ++ acc
+        let ss = subsectors!!(fromIntegral ssId)
+        Leaf ss
+
+data Tree = Branch Tree Node Tree | Leaf Subsector
+
+drawSS :: Subsector -> Pic ()
+drawSS _ = do
+  pure ()
+
+drawNode :: Node -> Pic ()
+drawNode Node{start,delta,rightBB,leftBB} = do
+  Pause
+  drawBB green rightBB
+  drawBB red leftBB
+  let end = start + delta
+  Line blue (unquantize start) (unquantize end)
+  pure ()
+
+drawBB :: Colour -> BB -> Pic ()
+drawBB col BB {top,bottom,left,right} = do
+  let a = V2 left top
+  let b = V2 right bottom
+  Rect col (unquantize a) (unquantize b)

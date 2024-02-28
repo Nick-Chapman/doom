@@ -2,7 +2,7 @@
 module Wad
   ( load, Wad(..), Level(..)
   , Thing(..), Linedef(..), Vertex, V2(..), Int16
-  , Seg(..), Subsector(..), Node(..)
+  , Seg(..), Subsector(..), Node(..),BB(..)
   ) where
 
 import Data.Bits (shiftL)
@@ -69,12 +69,20 @@ data Subsector = Subsector
   , first :: Int16
   } deriving Show
 
+data BB = BB
+  { top :: Int16
+  , bottom :: Int16
+  , left :: Int16
+  , right :: Int16
+  } deriving Show
+
 data Node = Node
   { start :: Vertex
   , delta :: Vertex
-  , right :: Int16
-  , left :: Int16
-  -- TODO: 2x bounding box
+  , rightBB :: BB
+  , leftBB :: BB
+  , rightChildId :: Int16
+  , leftChildId :: Int16
   } deriving Show
 
 readWad :: ByteString -> Wad
@@ -181,9 +189,19 @@ readNodes bs Entry{filepos,size,name} = do
   let deltaY = readInt16 bs (off+6)
   let delta = V2 deltaX deltaY
   -- 16 bytes for bounding boxes
-  let right = readInt16 bs (off+24)
-  let left = readInt16 bs (off+26)
-  pure Node { start, delta, right, left }
+  let rightBB = readBB bs (off+8)
+  let leftBB = readBB bs (off+16)
+  let rightChildId = readInt16 bs (off+24)
+  let leftChildId = readInt16 bs (off+26)
+  pure Node { start, delta, rightBB, leftBB, rightChildId, leftChildId }
+
+readBB :: ByteString -> Offset -> BB
+readBB bs off = do
+  let top = readInt16 bs off
+  let bottom = readInt16 bs (off+2)
+  let left = readInt16 bs (off+4)
+  let right = readInt16 bs (off+6)
+  BB { top, bottom, left, right }
 
 readBool :: ByteString -> Offset -> Bool
 readBool bs off =
