@@ -3,7 +3,7 @@ module DrawMap
   ( draw
   ) where
 
-import Pic (Pic(..),Colour,V2(..),grey,magenta,yellow,green,red,blue)
+import Pic (Pic(..),Colour,V2(..),grey,magenta,yellow,green,red,white)
 import Wad (Wad(..),Level(..),Thing(..),Linedef(..),Vertex,Int16
            ,Node(..),BB(..),Subsector(..))
 import Data.Word (Word16)
@@ -19,16 +19,23 @@ draw Wad{level1=level,player} = do
   where
     drawTreeToPlayer :: Tree -> Pic ()
     drawTreeToPlayer = \case
-      Branch l _n r -> do
-        drawNode _n
-        if onBackSideForPlayer player _n
-          then drawTreeToPlayer l -- back: GO left
-          else drawTreeToPlayer r -- front: GO right
+      Branch l n@Node{start,delta,rightBB,leftBB} r -> do
+        Line white (unquantize start) (unquantize (start+delta))
+        Pause
+        case onLeftSideForPlayer player n of
+          True -> do
+            drawBB green leftBB
+            drawBB red rightBB
+            drawTreeToPlayer l
+          False -> do
+            drawBB green rightBB
+            drawBB red leftBB
+            drawTreeToPlayer r
       Leaf ss ->
         drawSS ss
 
-onBackSideForPlayer :: Thing -> Node -> Bool
-onBackSideForPlayer Thing{pos=player} Node{start=partition,delta} = do
+onLeftSideForPlayer :: Thing -> Node -> Bool
+onLeftSideForPlayer Thing{pos=player} Node{start=partition,delta} = do
   cross (player - partition) delta <= 0
 
 cross :: V2 Int16 -> V2 Int16 -> Int -- TODO: aggh, Int16 lose precision!
@@ -88,15 +95,6 @@ data Tree = Branch Tree Node Tree | Leaf Subsector
 
 drawSS :: Subsector -> Pic ()
 drawSS _ = do
-  pure ()
-
-drawNode :: Node -> Pic ()
-drawNode Node{start,delta,rightBB,leftBB} = do
-  Pause
-  drawBB green rightBB
-  drawBB red leftBB
-  let end = start + delta
-  Line blue (unquantize start) (unquantize end)
   pure ()
 
 drawBB :: Colour -> BB -> Pic ()
