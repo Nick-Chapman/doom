@@ -16,11 +16,11 @@ everything :: Views -> [Colour] -> Wad -> POV -> Pic ()
 everything views randCols wad pov = do
   let Wad{level1=level} = wad
   let segs = closestSegs level pov
-  -- TODO: Should peg random colours to segId, not the current nearness order
-  let colouredSegs = zip randCols segs
+  let colOfSeg Seg{segId} = randCols !! segId
   let csts :: [(Colour,Seg,Trapezium)] =
         [ (col,seg,trap)
-        | (col,seg) <- colouredSegs
+        | seg <- segs
+        , let col = colOfSeg seg
         , let trap = compTrapezium wad pov seg
         ]
   let v2 = draw2d pov csts

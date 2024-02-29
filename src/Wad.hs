@@ -65,7 +65,8 @@ data Sidedef = Sidedef
 type Vertex = V2 Int -- TODO: use float already?
 
 data Seg = Seg
-  { start :: Vertex
+  { segId :: Int
+  , start :: Vertex
   , end :: Vertex
   , angle :: Int
   , linedef :: Linedef
@@ -195,7 +196,7 @@ readSegs lookV lookLD bs Entry{filepos,size,name} = do
   let linedef = lookLD $ readInt16 bs (off+6)
   let direction = readBool bs (off+8)
   let offset = readInt16 bs (off+10)
-  pure Seg { start, end, angle, linedef, direction, offset }
+  pure Seg { segId = i, start, end, angle, linedef, direction, offset }
 
 readSubsectors :: ByteString -> Entry -> [Subsector]
 readSubsectors bs Entry{filepos,size,name} = do
