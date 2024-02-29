@@ -2,14 +2,14 @@
 module Top (main) where
 
 import Pic (Colour,rgb,V2(..))
-import System.Random (getStdRandom,randomR)
+import System.Random (getStdRandom,randomR,setStdGen,mkStdGen)
 import Wad (Wad(..),Level(..))
 import qualified Engine (initConf,run)
 import qualified Wad (load)
 
 main :: IO ()
 main = do
-  -- TODO: seed random for same colours each time
+  setStdGen (mkStdGen 0) -- fixed seed; same random colours each run
   randCols <- sequence (replicate 1000 randomCol)
   wad <- Wad.load "doom1.wad"
   let Wad{level1=Level{vertexes}} = wad
