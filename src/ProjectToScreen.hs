@@ -9,7 +9,7 @@ module ProjectToScreen
 import Wad (Seg(..),Vertex,V2(..),Thing(..))
 
 data POV = POV -- (player's) point-of-view
-  { pos :: Vertex -- TODO: use float-based world-pos here
+  { pos :: V2 Float
   , angle :: Float
   -- TODO: add height here
   } deriving Show
@@ -19,7 +19,10 @@ turnL POV{pos,angle} = POV { pos, angle = angle + 1 }
 turnR POV{pos,angle} = POV { pos, angle = angle - 1 }
 
 getPOV :: Thing -> POV
-getPOV Thing{pos,angle} = POV {pos,angle = fromIntegral angle}
+getPOV Thing{pos,angle} = POV
+  { pos = fmap fromIntegral pos
+  , angle = fromIntegral angle
+  }
 
 data Trapezium = Trapezium (Pole,Pole)
 data Pole = Pole (Bool,Int,Int,Int) deriving Show
@@ -46,14 +49,14 @@ compXYY pov v1 = do
   let halfScreenW = screenW/2
   let halfScreenH = screenH/2
   let screenDistance = halfScreenW -- because FOV is +/- 45
-  let p2v1 = v1 - playerPos
+  let p2v1 :: V2 Float = fmap fromIntegral v1 - playerPos
   let distV1 = distance p2v1
   let angleV1 = angleOfVec p2v1
   let screenAngleV1 = playerAngle - angleV1 -- onScreen is range +/- 45
   let onScreenV1 = inPOV screenAngleV1
   let pixFromCenterV1 = tan (deg2rad screenAngleV1) * halfScreenW
   let pixFromLeftV1 = halfScreenW + pixFromCenterV1
-  let distScreenV1 = distanceF (V2 screenDistance (abs pixFromCenterV1))
+  let distScreenV1 = distance (V2 screenDistance (abs pixFromCenterV1))
   let dScale = distScreenV1/distV1
   let y1F = halfScreenH + vScale * dScale * (exFloorH - playerH)
   let y1C = halfScreenH + vScale * dScale * (exCeilingH - playerH)
@@ -62,16 +65,13 @@ compXYY pov v1 = do
        , floor y1F
        , floor y1C)
 
-distance :: Vertex -> Float
-distance v = distanceF (fmap fromIntegral v)
-
-distanceF :: V2 Float -> Float
-distanceF (V2 x y) = do
+distance :: V2 Float -> Float
+distance (V2 x y) = do
   sqrt (x * x + y * y)
 
-angleOfVec :: Vertex -> Float
+angleOfVec :: V2 Float -> Float
 angleOfVec (V2 x y) =
-  normAngle (rad2deg (atan2 (fromIntegral y) (fromIntegral x)))
+  normAngle (rad2deg (atan2 y x))
 
 normAngle :: Float -> Float
 normAngle a =

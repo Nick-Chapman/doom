@@ -8,7 +8,7 @@ import Data.Word (Word16)
 import Colour (Colour,grey,red,magenta)
 import Pic (Pic(..),V2(..))
 import ProjectToScreen (POV(..),Trapezium(..),Pole(..),compTrapezium,visibleTrap)
-import Wad (Wad(..),Level(..),Vertex,Node(..),Subsector(..),Seg(..),Linedef(..))
+import Wad (Wad(..),Level(..),Node(..),Subsector(..),Seg(..),Linedef(..))
 
 data Views = View2 | View3 | ViewBoth deriving Show
 
@@ -62,7 +62,7 @@ unquantize = fmap fromIntegral
 drawPlayer :: Float -> POV -> Pic ()
 drawPlayer h_fov pov = do
   let POV{pos,angle} = pov
-  Dot magenta (unquantize pos)
+  Dot magenta pos
   let len = 3000
   let a = angle
   let a1 = a - h_fov
@@ -71,12 +71,11 @@ drawPlayer h_fov pov = do
   drawVec magenta pos a1 len
   drawVec magenta pos a2 len
 
-drawVec :: Colour -> Vertex -> Float -> Float -> Pic ()
+drawVec :: Colour -> V2 Float -> Float -> Float -> Pic ()
 drawVec col pos angle len = do
-  let p = unquantize pos
   let r = radians angle
   let vec = V2 (len * cos r) (len * sin r)
-  Line col p (p+vec)
+  Line col pos (pos + vec)
   where
     radians n = n * pi / 180
 
@@ -122,11 +121,11 @@ viewTreeFromPos pov = collectSS
       Leaf ss ->
         [ss]
 
-onLeftSide :: Vertex -> Node -> Bool
+onLeftSide :: V2 Float -> Node -> Bool
 onLeftSide pos Node{start=partition,delta} = do
-  cross (pos - partition) delta <= 0
+  cross (pos - unquantize partition) (unquantize delta) <= 0
 
-cross :: V2 Int -> V2 Int -> Int
+cross :: V2 Float -> V2 Float -> Float
 cross (V2 x1 y1) (V2 x2 y2) = x1 * y2 - x2 * y1
 
 data Tree = Branch Tree Node Tree | Leaf Subsector
