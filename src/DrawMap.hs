@@ -21,30 +21,28 @@ draw views randCols wad pov = do
   let csts :: [(Colour,Seg,Trapezium)] =
         [ (col,seg,trap)
         | (col,seg) <- colouredSegs
-        , let trap = compTrapezium pov wad seg
+        , let trap = compTrapezium pov seg
         ]
-  let v2 = draw2d wad pov csts
-  let v3 = draw3d wad csts
+  let v2 = draw2d pov csts
+  let v3 = draw3d csts
   case views of View2 -> v2; View3 -> v3; ViewBoth -> do v2; v3
 
-draw2d :: Wad -> POV -> [(Colour,Seg,Trapezium)] -> Pic ()
-draw2d wad pov csts = do
-  let Wad{level1=level} = wad
-  let Level{vertexes} = level
-  sequence_ [ do drawSeg vertexes col seg
+draw2d :: POV -> [(Colour,Seg,Trapezium)] -> Pic ()
+draw2d pov csts = do
+  sequence_ [ do drawSeg col seg
             | (rcol,seg,trap) <- csts
             , let isVis = visibleTrap trap
-            , let isPort = isPortal wad seg
+            , let isPort = isPortal seg
             , let col = if isPort then grey else if isVis then rcol else red
             ]
   drawPlayer 45 pov
 
-draw3d :: Wad -> [(Colour,Seg,Trapezium)] -> Pic ()
-draw3d wad csts = do
+draw3d :: [(Colour,Seg,Trapezium)] -> Pic ()
+draw3d csts = do
   let vsolids =
         [ (col,trap)
         | (col,seg,trap) <- csts
-        , not (isPortal wad seg) -- solid wall
+        , not (isPortal seg) -- solid wall
         , visibleTrap trap -- in players persepective
         ]
   --Mes (show ("#vsolids",length vsolids))
@@ -52,12 +50,9 @@ draw3d wad csts = do
             | (col,trap) <- reverse vsolids -- start further away; painter's alg
             ]
 
-isPortal :: Wad -> Seg -> Bool
-isPortal wad seg = do
-  let Wad{level1=level} = wad
-  let Level{linedefs} = level
-  let Seg{linedefId} = seg
-  let linedef = linedefs!!linedefId
+isPortal :: Seg -> Bool
+isPortal seg = do
+  let Seg{linedef} = seg
   let Linedef{backSideId} = linedef
   backSideId /= -1
 
@@ -85,11 +80,9 @@ drawVec col pos angle len = do
   where
     radians n = fromIntegral n * pi / 180
 
-drawSeg :: [Vertex] -> Colour -> Seg -> Pic ()
-drawSeg vertexes col seg = do
-  let Seg{startId,endId} = seg
-  let start = vertexes!!startId
-  let end = vertexes!!endId
+drawSeg :: Colour -> Seg -> Pic ()
+drawSeg col seg = do
+  let Seg{start,end} = seg
   Line col (unquantize start) (unquantize end)
 
 draw3dsegSolid :: Colour -> Trapezium -> Pic ()

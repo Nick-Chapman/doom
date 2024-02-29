@@ -6,7 +6,7 @@ module ProjectToScreen
   , POV(..), getPOV,turnL,turnR
   ) where
 
-import Wad (Wad(..),Level(..),Seg(..),Vertex,V2(..),Thing(..))
+import Wad (Seg(..),Vertex,V2(..),Thing(..))
 
 data POV = POV -- (player's) point-of-view
   { pos :: Vertex -- TODO: use float-based world-pos here
@@ -29,15 +29,11 @@ visibleTrap (Trapezium(Pole(b1,_,_,_),Pole(b2,_,_,_))) =
   b1 && b2 -- completely visible
   -- TODO: support partially visible segs; clip
 
-compTrapezium :: POV -> Wad -> Seg -> Trapezium
-compTrapezium pov wad seg = do
-  let Wad{level1} = wad
-  let Level{vertexes} = level1
-  let Seg{startId,endId} = seg
-  let v1 = vertexes!!startId
-  let v2 = vertexes!!endId
-  let q1 = compXYY pov v1
-  let q2 = compXYY pov v2
+compTrapezium :: POV -> Seg -> Trapezium
+compTrapezium pov seg = do
+  let Seg{start,end} = seg
+  let q1 = compXYY pov start
+  let q2 = compXYY pov end
   Trapezium (q1,q2)
 
 compXYY :: POV -> Vertex -> Pole

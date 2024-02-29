@@ -57,13 +57,13 @@ data Linedef = Linedef
 
 data Sidedef = Sidedef {} deriving Show
 
-type Vertex = V2 Int
+type Vertex = V2 Int -- TODO: use float already?
 
 data Seg = Seg
-  { startId :: Int -- TODO: direct access to vertexes
-  , endId :: Int
+  { start :: Vertex
+  , end :: Vertex
   , angle :: Int
-  , linedefId :: Int  -- TODO: direct access to segs
+  , linedef :: Linedef
   , direction :: Bool
   , offset :: Int
   } deriving Show
@@ -116,11 +116,13 @@ readLevel :: ByteString -> [Entry] -> Int -> Level
 readLevel bs dict i = do
   let things = readThings bs (dict!!(i+1))
   let vertexes = readVertexes bs (dict!!(i+4))
-  let m = Map.fromList (zip [0..] vertexes)
-  let lookV n = maybe undefined id (Map.lookup n m)
+  let vmap = Map.fromList (zip [0..] vertexes)
+  let lookV n = maybe undefined id (Map.lookup n vmap)
   let linedefs = readLinedefs lookV bs (dict!!(i+2))
+  let lmap = Map.fromList (zip [0..] linedefs)
+  let lookLD n = maybe undefined id (Map.lookup n lmap)
   -- 3:SIDEDEFS
-  let segs = readSegs bs (dict!!(i+5))
+  let segs = readSegs lookV lookLD bs (dict!!(i+5))
   let subsectors = readSubsectors bs (dict!!(i+6))
   let nodes = readNodes bs (dict!!(i+7))
   -- 8:SECTORS, 9:REJECT, 10:BLOCKMAP
@@ -160,19 +162,19 @@ readLinedefs lookV bs Entry{filepos,size,name} = do
   let backSideId = readInt16 bs (off+12)
   pure Linedef { start, end, frontSideId, backSideId }
 
-readSegs :: ByteString -> Entry -> [Seg]
-readSegs bs Entry{filepos,size,name} = do
+readSegs :: (Int -> Vertex) -> (Int -> Linedef) -> ByteString -> Entry -> [Seg]
+readSegs lookV lookLD bs Entry{filepos,size,name} = do
   let nbytes = 12
   assertEq name "SEGS" $ do
   i <- [0.. size `div` nbytes - 1]
   let off = filepos + nbytes * i
-  let startId = readInt16 bs off
-  let endId = readInt16 bs (off+2)
+  let start = lookV $ readInt16 bs off
+  let end = lookV $ readInt16 bs (off+2)
   let angle = readInt16 bs (off+4)
-  let linedefId = readInt16 bs (off+6)
+  let linedef = lookLD $ readInt16 bs (off+6)
   let direction = readBool bs (off+8)
   let offset = readInt16 bs (off+10)
-  pure Seg { startId, endId, angle, linedefId, direction, offset }
+  pure Seg { start, end, angle, linedef, direction, offset }
 
 readSubsectors :: ByteString -> Entry -> [Subsector]
 readSubsectors bs Entry{filepos,size,name} = do
