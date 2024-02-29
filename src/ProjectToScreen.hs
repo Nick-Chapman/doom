@@ -10,7 +10,7 @@ import Wad (Seg(..),Vertex,V2(..),Thing(..))
 
 data POV = POV -- (player's) point-of-view
   { pos :: Vertex -- TODO: use float-based world-pos here
-  , angle :: Int -- TODO: use Float
+  , angle :: Float
   -- TODO: add height here
   } deriving Show
 
@@ -38,7 +38,7 @@ compTrapezium pov seg = do
 
 compXYY :: POV -> Vertex -> Pole
 compXYY pov v1 = do
-  let POV{pos=playerPos,angle=playerAngleI} = pov
+  let POV{pos=playerPos,angle=playerAngle} = pov
   let vScale = 3 -- TODO: what should this be?
   let (exFloorH,exCeilingH) = (32,88) -- TODO: use real values from sector
   let (screenW,screenH) = (320,200) -- TODO: from config
@@ -46,7 +46,6 @@ compXYY pov v1 = do
   let halfScreenW = screenW/2
   let halfScreenH = screenH/2
   let screenDistance = halfScreenW -- because FOV is +/- 45
-  let playerAngle = fromIntegral playerAngleI
   let p2v1 = v1 - playerPos
   let distV1 = distance p2v1
   let angleV1 = angleOfVec p2v1

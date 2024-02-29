@@ -59,7 +59,7 @@ isPortal seg = do
 unquantize :: V2 Int -> V2 Float
 unquantize = fmap fromIntegral
 
-drawPlayer :: Int -> POV -> Pic ()
+drawPlayer :: Float -> POV -> Pic ()
 drawPlayer h_fov pov = do
   let POV{pos,angle} = pov
   Dot magenta (unquantize pos)
@@ -71,14 +71,14 @@ drawPlayer h_fov pov = do
   drawVec magenta pos a1 len
   drawVec magenta pos a2 len
 
-drawVec :: Colour -> Vertex -> Int -> Float -> Pic ()
+drawVec :: Colour -> Vertex -> Float -> Float -> Pic ()
 drawVec col pos angle len = do
   let p = unquantize pos
   let r = radians angle
   let vec = V2 (len * cos r) (len * sin r)
   Line col p (p+vec)
   where
-    radians n = fromIntegral n * pi / 180
+    radians n = n * pi / 180
 
 drawSeg :: Colour -> Seg -> Pic ()
 drawSeg col seg = do
