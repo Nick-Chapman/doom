@@ -1,61 +1,55 @@
 
 module DrawMap
-  ( draw
+  ( draw, Views(..)
   ) where
 
-import Pic
-import Wad --(Wad(..),Level(..),Thing(..),Vertex,Int16,Node(..),Subsector(..),Seg(..),Linedef(..))
-import Data.Word (Word16)
 import Data.Bits (shiftL)
-import ProjectToScreen -- (Trapezium(..),Pole(..),compTrapezium,visible,printTrapezium)
+import Data.Word (Word16)
+import Pic (Colour,Pic(..),V2(..),grey,red,magenta)
+import ProjectToScreen (POV(..),Trapezium(..),Pole(..),compTrapezium,visibleTrap)
+import Wad (Wad(..),Level(..),Vertex,Int16,Node(..),Subsector(..),Seg(..),Linedef(..))
 
+data Views = View2 | View3 | ViewBoth deriving Show
 
-draw :: [Colour] -> Int -> Wad -> Pic ()
-draw cols i wad = do
-  let _ = draw2d wad
-  draw3d cols i wad
-  pure ()
-
--- Map view...
-draw2d :: Wad -> Pic ()
-draw2d wad = do
-  let Wad{level1=level,player} = wad
-  let Level{vertexes} = level
-  let Thing{pos=playerPos} = player
-  let segs = closestSegs level playerPos
-  sequence_ [ do drawSeg vertexes col seg
-            | seg <- segs
-            , let col = if isPortal wad seg then grey else lightGrey
-            ]
-  drawPlayer 45 player
-
-
--- 1st person persepective...
-draw3d :: [Colour] -> Int -> Wad -> Pic ()
-draw3d randCols _i wad = do
-  let Wad{level1=level,player} = wad
-  let Thing{pos=playerPos} = player
-  let segs = closestSegs level playerPos
-  let vtraps =
-        [ (seg,trap)
-        | seg <- reverse segs -- start furthest away, for painter alg !!
-        , let trap = compTrapezium wad seg
-        , visible trap -- in players persepective
-        , not (isPortal wad seg) -- solid wall
+draw :: Views -> [Colour] -> Wad -> POV -> Pic ()
+draw views randCols wad pov = do
+  let Wad{level1=level} = wad
+  let segs = closestSegs level pov
+  -- TODO: Should peg random colours to segId, not the current nearness order
+  let colouredSegs = zip randCols segs
+  let csts :: [(Colour,Seg,Trapezium)] =
+        [ (col,seg,trap)
+        | (col,seg) <- colouredSegs
+        , let trap = compTrapezium pov wad seg
         ]
-  --Mes (show ("#vtraps",length vtraps))
-  sequence_ [ do draw3dsegSolid col trap
-            | (col,(_,trap)) <- zip randCols vtraps
+  let v2 = draw2d wad pov csts
+  let v3 = draw3d wad csts
+  case views of View2 -> v2; View3 -> v3; ViewBoth -> do v2; v3
+
+draw2d :: Wad -> POV -> [(Colour,Seg,Trapezium)] -> Pic ()
+draw2d wad pov csts = do
+  let Wad{level1=level} = wad
+  let Level{vertexes} = level
+  sequence_ [ do drawSeg vertexes col seg
+            | (rcol,seg,trap) <- csts
+            , let isVis = visibleTrap trap
+            , let isPort = isPortal wad seg
+            , let col = if isPort then grey else if isVis then rcol else red
             ]
-  -- highlight specific seg/trap
-  let segI = _i `mod` length vtraps
-  Eff (print segI)
-  let (seg,trap) = vtraps!!segI
-  Eff (_infoSeg wad seg)
-  Eff (printTrapezium trap)
-  let Level{vertexes=_vs} = level
-  --drawSeg _vs green seg
-  draw3dsegFrame yellow trap
+  drawPlayer 45 pov
+
+draw3d :: Wad -> [(Colour,Seg,Trapezium)] -> Pic ()
+draw3d wad csts = do
+  let vsolids =
+        [ (col,trap)
+        | (col,seg,trap) <- csts
+        , not (isPortal wad seg) -- solid wall
+        , visibleTrap trap -- in players persepective
+        ]
+  --Mes (show ("#vsolids",length vsolids))
+  sequence_ [ do draw3dsegSolid col trap
+            | (col,trap) <- reverse vsolids -- start further away; painter's alg
+            ]
 
 isPortal :: Wad -> Seg -> Bool
 isPortal wad seg = do
@@ -66,21 +60,12 @@ isPortal wad seg = do
   let Linedef{backSideId} = linedef
   backSideId /= -1
 
-_infoSeg :: Wad -> Seg -> IO ()
-_infoSeg wad seg = do
-  let Wad{level1=level} = wad
-  let Level{linedefs} = level
-  print seg
-  let Seg{linedefId} = seg
-  let linedef = linedefs!!(fromIntegral linedefId)
-  print linedef
-  pure ()
-
 unquantize :: V2 Int16 -> V2 Float
 unquantize = fmap fromIntegral
 
-drawPlayer :: Int16 -> Thing -> Pic ()
-drawPlayer h_fov Thing{pos,angle} = do
+drawPlayer :: Int16 -> POV -> Pic ()
+drawPlayer h_fov pov = do
+  let POV{pos,angle} = pov
   Dot magenta (unquantize pos)
   let len = 3000
   let a = angle
@@ -106,48 +91,34 @@ drawSeg vertexes col seg = do
   let end = vertexes!!endId
   Line col (unquantize start) (unquantize end)
 
-draw3dsegFrame :: Colour -> Trapezium -> Pic ()
-draw3dsegFrame col w = do
-  let Trapezium(Pole(_,x1,y1f,y1c),Pole(_,x2,y2f,y2c)) = w
-  let a = V2 x1 y1f
-  let b = V2 x2 y2f
-  let c = V2 x1 y1c
-  let d = V2 x2 y2c
-  LineQ col a b
-  LineQ col c d
-  LineQ col a c
-  LineQ col b d
-  pure ()
-
-
 draw3dsegSolid :: Colour -> Trapezium -> Pic ()
 draw3dsegSolid col w = do
   let Trapezium(Pole(_,x1,y1f,y1c),Pole(_,x2,y2f,y2c)) = w
-
   let fstep :: Float = fromIntegral (y2f-y1f) / fromIntegral (x2-x1)
   let cstep :: Float = fromIntegral (y2c-y1c) / fromIntegral (x2-x1)
-
   sequence_ [ LineQ col (V2 x yf) (V2 x yc)
             | x <- [x1..x2]
             , let yf = y1f + floor (fromIntegral (x-x1) * fstep)
             , let yc = y1c + floor (fromIntegral (x-x1) * cstep)
             ]
 
+-- TODO: BSP code to sep file
 
-closestSegs :: Level -> Vertex -> [Seg]
-closestSegs level pos = do
+closestSegs :: Level -> POV -> [Seg]
+closestSegs level pov = do
   let Level{segs=allSegs} = level
   let tree = reifyTree level
-  let subs = viewTreeFromPos pos tree
+  let subs = viewTreeFromPos pov tree
   subs >>= expandSS allSegs
 
 expandSS :: [Seg] -> Subsector -> [Seg]
 expandSS allSegs Subsector{first,count} =
   [ allSegs!!(fromIntegral i) | i <- [ first .. first+count-1 ] ]
 
-viewTreeFromPos :: Vertex -> Tree -> [Subsector]
-viewTreeFromPos playerPos = collectSS
+viewTreeFromPos :: POV -> Tree -> [Subsector]
+viewTreeFromPos pov = collectSS
   where
+    POV{pos=playerPos} = pov
     collectSS :: Tree -> [Subsector]
     collectSS = \case
       Branch l n r -> do

@@ -2,54 +2,62 @@
 module ProjectToScreen
   ( Trapezium(..), Pole(..)
   , compTrapezium
-  , visible
-  , printTrapezium
+  , visibleTrap
+  , POV(..), getPOV,turnL,turnR
   ) where
 
-import Wad
+import Wad (Wad(..),Level(..),Seg(..),Vertex,V2(..),Int16,Thing(..))
+
+data POV = POV -- (player's) point-of-view
+  { pos :: Vertex -- TODO: use float-based world-pos here
+  , angle :: Int16 -- TODO: use Float
+  -- TODO: add height here
+  } deriving Show
+
+turnL,turnR :: POV -> POV
+turnL POV{pos,angle} = POV { pos, angle = angle + 1 }
+turnR POV{pos,angle} = POV { pos, angle = angle - 1 }
+
+getPOV :: Thing -> POV
+getPOV Thing{pos,angle} = POV {pos,angle = fromIntegral angle}
 
 data Trapezium = Trapezium (Pole,Pole)
-data Pole = Pole (Bool,Int,Int,Int) deriving Show -- flag Pole!
+data Pole = Pole (Bool,Int,Int,Int) deriving Show
 
-visible :: Trapezium -> Bool
-visible (Trapezium(Pole(b1,_,_,_),Pole(b2,_,_,_))) = b1 && b2
+visibleTrap :: Trapezium -> Bool
+visibleTrap (Trapezium(Pole(b1,_,_,_),Pole(b2,_,_,_))) =
+  b1 && b2 -- completely visible
+  -- TODO: suppoty partially visible segs; clip
 
-printTrapezium :: Trapezium -> IO ()
-printTrapezium w = do
-  let Trapezium(Pole(_,x1,y1f,y1c),Pole(_,x2,y2f,y2c)) = w
-  print ((x1,y1f,y1c),(x2,y2f,y2c))
-
-compTrapezium :: Wad -> Seg -> Trapezium
-compTrapezium wad seg = do
+compTrapezium :: POV -> Wad -> Seg -> Trapezium
+compTrapezium pov wad seg = do
   let Wad{level1} = wad
   let Level{vertexes} = level1
   let Seg{startId,endId} = seg
   let v1 = vertexes!!startId
   let v2 = vertexes!!endId
-  let q1 = compXYY wad v1
-  let q2 = compXYY wad v2
+  let q1 = compXYY pov v1
+  let q2 = compXYY pov v2
   Trapezium (q1,q2)
 
-compXYY :: Wad -> Vertex -> Pole
-compXYY wad v1 = do
-  let vScale = 3 -- what should this be?
-  let playerH  = 50
-  let exFloorH = 32
-  let exCeilingH = 88
-  let screenWidth :: Float = 320
-  let screenH :: Float = 200
-  let halfScreenWidth = screenWidth/2
+compXYY :: POV -> Vertex -> Pole
+compXYY pov v1 = do
+  let POV{pos=playerPos,angle=playerAngleI} = pov
+  let vScale = 3 -- TODO: what should this be?
+  let (exFloorH,exCeilingH) = (32,88) -- TODO: use real values from sector
+  let (screenW,screenH) = (320,200) -- TODO: from config
+  let playerH = 50 -- TODO: from config; modified by current sector height
+  let halfScreenW = screenW/2
   let halfScreenH = screenH/2
-  let screenDistance = halfScreenWidth -- because FOV is +/- 45
-  let Wad{player=Thing{pos=playerPos,angle=playerAngleI}} = wad
-  let playerAngle :: Float = fromIntegral playerAngleI
+  let screenDistance = halfScreenW -- because FOV is +/- 45
+  let playerAngle = fromIntegral playerAngleI
   let p2v1 = v1 - playerPos
   let distV1 = distance p2v1
   let angleV1 = angleOfVec p2v1
   let screenAngleV1 = playerAngle - angleV1 -- onScreen is range +/- 45
   let onScreenV1 = inPOV screenAngleV1
-  let pixFromCenterV1 = tan (deg2rad screenAngleV1) * halfScreenWidth
-  let pixFromLeftV1 = halfScreenWidth + pixFromCenterV1
+  let pixFromCenterV1 = tan (deg2rad screenAngleV1) * halfScreenW
+  let pixFromLeftV1 = halfScreenW + pixFromCenterV1
   let distScreenV1 = distanceF (V2 screenDistance (abs pixFromCenterV1))
   let dScale = distScreenV1/distV1
   let y1F = halfScreenH + vScale * dScale * (exFloorH - playerH)
@@ -81,5 +89,4 @@ deg2rad :: Float -> Float
 deg2rad r = r*pi/180
 
 inPOV :: Float -> Bool
-inPOV a = a >= -45 && a <= 45
-
+inPOV a = a >= -45 && a <= 45 -- TODO: make FOV configurable

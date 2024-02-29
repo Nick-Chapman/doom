@@ -4,15 +4,17 @@ module Engine
   ) where
 
 import Control.Concurrent (threadDelay)
+import DrawMap (Views(..))
 import Foreign.C.Types (CInt)
-import Pic --(Pic,V2(..),Colour,darkGrey,white)
+import Pic (Pic,V2(..),Colour,darkGrey,white)
+import ProjectToScreen (POV,getPOV,turnL,turnR)
 import SDL (Renderer,($=),InputMotion(..))
-import Wad (Wad,Vertex)
+import SDL.Input.Keyboard.Codes -- (???)
+import Wad (Wad(..),Vertex)
 import qualified Data.Text as Text (pack)
 import qualified DrawMap (draw)
---import qualified Pic (Pic(..))
+import qualified Pic (Pic(..))
 import qualified SDL
-import SDL.Input.Keyboard.Codes
 
 data Conf = Conf
   { resX :: CInt
@@ -24,9 +26,9 @@ data Conf = Conf
   , randCols :: [Colour]
   } deriving Show
 
-type BB = (Vertex,Vertex)
+type VV = (Vertex,Vertex)
 
-initConf :: BB -> [Colour] -> Conf
+initConf :: VV -> [Colour] -> Conf
 initConf bb randCols = Conf
   { resX, resY, border, sf
   , offset = V2 offsetX offsetY
@@ -34,7 +36,7 @@ initConf bb randCols = Conf
   , randCols = cycle randCols
   }
   where
-    sf = 5
+    sf = 4
     border = 10
     resX = 320
     resY = 200
@@ -58,30 +60,41 @@ run conf wad = do
   renderer <- SDL.createRenderer win (-1)
     SDL.defaultRenderer { SDL.rendererType = SDL.UnacceleratedRenderer }
   let assets = DrawAssets { win, renderer }
+  let fps = 10
+  let del :: Int = 1000000 `div` fps -- rough and ready
   let
     loop :: Int -> State -> IO ()
     loop n state = do
-      --print ("frame",n)
+      --print ("frame",n,state)
       --SDL.windowSize win $= windowSize conf -- resize
-      let State{segI} = state
-      let pic = DrawMap.draw randCols segI wad
+      let State{pov,views} = state
+      let pic = DrawMap.draw views randCols wad pov
       drawEverything conf assets pic
-      threadDelay 100000 -- 0.1 sec
+      threadDelay del
       events <- SDL.pollEvents
       processEvents state events >>= \case
         Nothing -> pure () -- Quit
         Just state -> loop (n+1) state
-  loop 0 state0
+  loop 0 (initState wad)
   SDL.destroyRenderer renderer
   SDL.destroyWindow win
   SDL.quit
 
 data State = State
-  { segI :: Int
+  { pov :: POV
+  --, segI :: Int
+  , views :: Views
   } deriving Show
 
-state0 :: State
-state0 = State { segI = 0 }
+initState :: Wad -> State
+initState wad = do
+  let Wad{player} = wad
+  let pov = getPOV player
+  State
+    { pov
+    --, segI = 0
+    , views = View3
+    }
 
 processEvents :: State -> [SDL.Event] -> IO (Maybe State)
 processEvents state = \case
@@ -97,12 +110,21 @@ processEvent state = \case
   SDL.Event _ (SDL.KeyboardEvent ke) -> do
     let key = SDL.keysymKeycode (SDL.keyboardEventKeysym ke)
     let motion = SDL.keyboardEventKeyMotion ke
-    let State{segI} = state
+    let State{pov,views} = state
     case (key,motion) of
       (KeycodeEscape,Pressed) -> pure Nothing
-      (KeycodeReturn,Pressed) -> pure (Just state { segI = 1 + segI })
+      -- (KeycodeReturn,Pressed) -> pure (Just state { segI = 1 + segI })
+      (KeycodeReturn,Pressed) -> pure (Just state { views = cycleViews views })
+      (KeycodeLeft,Pressed) -> pure (Just state { pov = turnL pov })
+      (KeycodeRight,Pressed) -> pure (Just state { pov = turnR pov })
       _ -> pure (Just state)
   SDL.Event _ _ -> pure (Just state)
+
+cycleViews :: Views -> Views
+cycleViews = \case
+  View3 -> ViewBoth
+  ViewBoth -> View2
+  View2 -> View3
 
 data DrawAssets = DrawAssets
   { renderer :: Renderer
