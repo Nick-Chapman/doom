@@ -35,7 +35,7 @@ draw2d pov csts = do
             , let isPort = isPortal seg
             , let col = if isPort then grey else if isVis then rcol else red
             ]
-  drawPlayer 45 pov
+  drawPlayer 45 pov -- TODO: conf
 
 draw3d :: [(Colour,Seg,Trapezium)] -> Pic ()
 draw3d csts = do

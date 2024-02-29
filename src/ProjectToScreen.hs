@@ -14,9 +14,9 @@ data POV = POV -- (player's) point-of-view -- TODO: own module
   -- TODO: add height here
   } deriving Show
 
-turnL,turnR :: POV -> POV -- TODO: normalize angle
-turnL POV{pos,angle} = POV { pos, angle = angle + 1 }
-turnR POV{pos,angle} = POV { pos, angle = angle - 1 }
+turnL,turnR :: POV -> POV
+turnL POV{pos,angle} = POV { pos, angle = normAngle (angle + 1) } -- TODO: conf
+turnR POV{pos,angle} = POV { pos, angle = normAngle (angle - 1) }
 
 forwards :: POV -> POV
 forwards POV{pos=V2 x y,angle} =
@@ -89,7 +89,7 @@ compXYY pov sector v1 = do
   let p2v1 :: V2 Float = fmap fromIntegral v1 - playerPos
   let distV1 = distance p2v1
   let angleV1 = angleOfVec p2v1
-  let screenAngleV1 = playerAngle - angleV1 -- onScreen is range +/- 45
+  let screenAngleV1 = normAngle (playerAngle - angleV1) -- onScreen is range +/- 45
   let onScreenV1 = inPOV screenAngleV1
   let pixFromCenterV1 = tan (deg2rad screenAngleV1) * halfScreenW
   let pixFromLeftV1 = halfScreenW + pixFromCenterV1
@@ -112,7 +112,7 @@ angleOfVec (V2 x y) =
 
 normAngle :: Float -> Float
 normAngle a =
-  if a < 0 then a + 360 else a
+  if a < 0 then a + 360 else if a > 360 then a - 360 else a
 
 rad2deg :: Float -> Float
 rad2deg r = r*180/pi
@@ -121,4 +121,4 @@ deg2rad :: Float -> Float
 deg2rad r = r*pi/180
 
 inPOV :: Float -> Bool
-inPOV a = a >= -45 && a <= 45 -- TODO: make FOV configurable
+inPOV a = not (a < 315 && a > 45) -- TODO: make FOV configurable
