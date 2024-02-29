@@ -53,8 +53,7 @@ data Pole = Pole (Bool,Int,Int,Int) deriving Show
 
 visibleTrap :: Trapezium -> Bool
 visibleTrap (Trapezium(Pole(b1,_,_,_),Pole(b2,_,_,_))) =
-  b1 && b2 -- completely visible
-  -- TODO: support partially visible segs; clip
+  b1 || b2 -- partially visible -- TODO: need to do anything to clip?
 
 compTrapezium :: Wad -> POV -> Seg -> Trapezium
 compTrapezium wad pov seg = do
