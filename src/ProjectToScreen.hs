@@ -3,12 +3,12 @@ module ProjectToScreen
   ( Trapezium(..), Pole(..)
   , compTrapezium
   , visibleTrap
-  , POV(..), getPOV,turnL,turnR
+  , POV(..),getPOV,turnL,turnR,forwards,backwards,strafeL,strafeR
   ) where
 
 import Wad (Seg(..),Vertex,V2(..),Thing(..))
 
-data POV = POV -- (player's) point-of-view
+data POV = POV -- (player's) point-of-view -- TODO: own module
   { pos :: V2 Float
   , angle :: Float
   -- TODO: add height here
@@ -17,6 +17,30 @@ data POV = POV -- (player's) point-of-view
 turnL,turnR :: POV -> POV -- TODO: normalize angle
 turnL POV{pos,angle} = POV { pos, angle = angle + 1 }
 turnR POV{pos,angle} = POV { pos, angle = angle - 1 }
+
+forwards :: POV -> POV
+forwards POV{pos=V2 x y,angle} =
+  POV { pos = V2 (x + cos (deg2rad angle) * stride) (y + sin (deg2rad angle) * stride)
+      , angle }
+  where stride = 5 -- TODO: config
+
+backwards :: POV -> POV
+backwards POV{pos=V2 x y,angle} =
+  POV { pos = V2 (x - cos (deg2rad angle) * stride) (y - sin (deg2rad angle) * stride)
+      , angle }
+  where stride = 5
+
+strafeL :: POV -> POV
+strafeL POV{pos=V2 x y,angle} =
+  POV { pos = V2 (x - sin (deg2rad angle) * stride) (y + cos (deg2rad angle) * stride)
+      , angle }
+  where stride = 5
+
+strafeR :: POV -> POV
+strafeR POV{pos=V2 x y,angle} =
+  POV { pos = V2 (x + sin (deg2rad angle) * stride) (y - cos (deg2rad angle) * stride)
+      , angle }
+  where stride = 5
 
 getPOV :: Thing -> POV
 getPOV Thing{pos,angle} = POV

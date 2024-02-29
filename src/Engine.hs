@@ -3,18 +3,20 @@ module Engine
   ( initConf, Conf, run
   ) where
 
-import Control.Concurrent (threadDelay)
-import Render (Views(..))
-import Foreign.C.Types (CInt)
 import Colour(Colour,darkGrey,white)
+import Control.Concurrent (threadDelay)
+import Data.Map (Map)
+import Foreign.C.Types (CInt)
 import Pic (Pic,V2(..))
-import ProjectToScreen (POV,getPOV,turnL,turnR)
+import ProjectToScreen (POV,getPOV,turnL,turnR,forwards,backwards,strafeL,strafeR)
+import Render (Views(..))
 import SDL (Renderer,($=),InputMotion(..))
 import SDL.Input.Keyboard.Codes -- (???)
 import Wad (Wad(..),Vertex)
+import qualified Data.Map as Map
 import qualified Data.Text as Text (pack)
-import qualified Render (everything)
 import qualified Pic (Pic(..))
+import qualified Render (everything)
 import qualified SDL
 
 data Conf = Conf
@@ -61,14 +63,15 @@ run conf wad = do
   renderer <- SDL.createRenderer win (-1)
     SDL.defaultRenderer { SDL.rendererType = SDL.UnacceleratedRenderer }
   let assets = DrawAssets { win, renderer }
-  let fps = 10
+  let fps = 30
   let del :: Int = 1000000 `div` fps -- rough and ready
   let
     loop :: Int -> State -> IO ()
-    loop n state = do
-      --print ("frame",n,state)
-      --SDL.windowSize win $= windowSize conf -- resize
+    loop n state0 = do
+      let state = updateStateFromButtons state0
       let State{pov,views} = state
+      --print ("frame",n,pov)
+      --SDL.windowSize win $= windowSize conf -- resize
       let pic = Render.everything views randCols wad pov
       drawEverything conf assets pic
       threadDelay del
@@ -83,8 +86,8 @@ run conf wad = do
 
 data State = State -- TODO: sep module?
   { pov :: POV
-  --, segI :: Int
   , views :: Views
+  , buttons :: Buttons
   } deriving Show
 
 initState :: Wad -> State
@@ -93,9 +96,13 @@ initState wad = do
   let pov = getPOV player
   State
     { pov
-    --, segI = 0
     , views = View3
+    , buttons = buttons0
     }
+
+updateStateFromButtons :: State -> State
+updateStateFromButtons state@State{buttons,pov} =
+  state { pov = updatePOV buttons pov }
 
 processEvents :: State -> [SDL.Event] -> IO (Maybe State)
 processEvents state = \case
@@ -111,15 +118,17 @@ processEvent state = \case
   SDL.Event _ (SDL.KeyboardEvent ke) -> do
     let key = SDL.keysymKeycode (SDL.keyboardEventKeysym ke)
     let motion = SDL.keyboardEventKeyMotion ke
-    let State{pov,views} = state
+    let State{views,buttons} = state
+    let continuous b = pure (Just state { buttons = setButton motion b buttons })
     case (key,motion) of
-      -- TODO: continuous motion (act on both Pressed/Released)
       (KeycodeEscape,Pressed) -> pure Nothing
-      -- (KeycodeReturn,Pressed) -> pure (Just state { segI = 1 + segI })
       (KeycodeReturn,Pressed) -> pure (Just state { views = cycleViews views })
-      (KeycodeLeft,Pressed) -> pure (Just state { pov = turnL pov })
-      (KeycodeRight,Pressed) -> pure (Just state { pov = turnR pov })
-      -- TODO: player movement
+      (KeycodeLeft,_) -> continuous TurnL
+      (KeycodeRight,_) -> continuous TurnR
+      (KeycodeW,_) -> continuous Forwards
+      (KeycodeS,_) -> continuous Backwards
+      (KeycodeA,_) -> continuous StrafeL
+      (KeycodeD,_) -> continuous StrafeR
       _ -> pure (Just state)
   SDL.Event _ _ -> pure (Just state)
 
@@ -128,6 +137,36 @@ cycleViews = \case
   View3 -> ViewBoth
   ViewBoth -> View2
   View2 -> View3
+
+data But
+  = Forwards
+  | Backwards
+  | TurnL
+  | TurnR
+  | StrafeL
+  | StrafeR
+  deriving (Eq,Ord,Show)
+
+newtype Buttons = Buttons { map :: Map But InputMotion } deriving Show
+
+buttons0 :: Buttons
+buttons0 = Buttons { map = Map.empty }
+
+isPressed :: But -> Buttons -> Bool
+isPressed but Buttons{map} = Map.findWithDefault Released but map == Pressed
+
+setButton :: InputMotion -> But -> Buttons -> Buttons
+setButton v but Buttons{map} = Buttons { map = Map.insert but v map }
+
+updatePOV :: Buttons -> POV -> POV
+updatePOV b s =
+  ( (if isPressed Forwards b then forwards else id)
+  . (if isPressed Backwards b then backwards else id)
+  . (if isPressed TurnL b then turnL else id)
+  . (if isPressed TurnR b then turnR else id)
+  . (if isPressed StrafeL b then strafeL else id)
+  . (if isPressed StrafeR b then strafeR else id)
+  ) s
 
 data DrawAssets = DrawAssets
   { renderer :: Renderer
@@ -188,7 +227,6 @@ renderPic Conf{resY,sf,border,offset,scale} DrawAssets{renderer=r} = loop
         let p' = (V2 sf sf *) $ flipY (fmap fromIntegral p)
         let q' = (V2 sf sf *) $ flipY (fmap fromIntegral q)
         SDL.drawLine r (SDL.P p') (SDL.P q')
-
 
 setColor :: SDL.Renderer -> Colour -> IO ()
 setColor r c = SDL.rendererDrawColor r $= c
