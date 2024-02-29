@@ -1,5 +1,5 @@
 
-module Render -- TODO: rename Draw (we draw pictures!)
+module Draw
   ( everything, Views(..)
   ) where
 
@@ -7,7 +7,7 @@ import Data.Bits (shiftL)
 import Data.Word (Word16)
 import Colour (Colour,grey,red,magenta)
 import Pic (Pic(..),V2(..))
-import ProjectToScreen (POV(..),Trapezium(..),Pole(..),compTrapezium,visibleTrap)
+import Project (POV(..),Trapezium(..),Pole(..),compTrapezium,visibleTrap)
 import Wad (Wad(..),Level(..),Node(..),Subsector(..),Seg(..),Linedef(..))
 
 data Views = View2 | View3 | ViewBoth deriving Show

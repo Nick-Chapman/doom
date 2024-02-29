@@ -8,15 +8,15 @@ import Control.Concurrent (threadDelay)
 import Data.Map (Map)
 import Foreign.C.Types (CInt)
 import Pic (Pic,V2(..))
-import ProjectToScreen (POV,getPOV,turnL,turnR,forwards,backwards,strafeL,strafeR)
-import Render (Views(..))
+import Project (POV,getPOV,turnL,turnR,forwards,backwards,strafeL,strafeR)
+import Draw (Views(..))
 import SDL (Renderer,($=),InputMotion(..))
 import SDL.Input.Keyboard.Codes -- (???)
 import Wad (Wad(..),Vertex)
 import qualified Data.Map as Map
 import qualified Data.Text as Text (pack)
 import qualified Pic (Pic(..))
-import qualified Render (everything)
+import qualified Draw (everything)
 import qualified SDL
 
 data Conf = Conf
@@ -72,8 +72,8 @@ run conf wad = do
       let State{pov,views} = state
       --print ("frame",n,pov)
       --SDL.windowSize win $= windowSize conf -- resize
-      let pic = Render.everything views randCols wad pov
-      drawEverything conf assets pic
+      let pic = Draw.everything views randCols wad pov
+      renderFrame conf assets pic
       threadDelay del
       events <- SDL.pollEvents
       processEvents state events >>= \case
@@ -173,8 +173,8 @@ data DrawAssets = DrawAssets
   , win :: SDL.Window
   }
 
-drawEverything :: Conf -> DrawAssets -> Pic () -> IO ()
-drawEverything conf assets@DrawAssets{renderer=r} pic = do
+renderFrame :: Conf -> DrawAssets -> Pic () -> IO ()
+renderFrame conf assets@DrawAssets{renderer=r} pic = do
   setColor r darkGrey
   SDL.clear r
   setColor r white -- in case we forget to set when rendering Pic

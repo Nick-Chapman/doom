@@ -1,5 +1,5 @@
 
-module ProjectToScreen
+module Project
   ( Trapezium(..), Pole(..)
   , compTrapezium
   , visibleTrap
