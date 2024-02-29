@@ -1,8 +1,9 @@
 
 module Top (main) where
 
-import Pic (Colour,rgb,V2(..))
-import System.Random (getStdRandom,randomR,setStdGen,mkStdGen)
+import Colour (randomColour)
+import Pic (V2(..))
+import System.Random (setStdGen,mkStdGen)
 import Wad (Wad(..),Level(..))
 import qualified Engine (initConf,run)
 import qualified Wad (load)
@@ -10,7 +11,7 @@ import qualified Wad (load)
 main :: IO ()
 main = do
   setStdGen (mkStdGen 0) -- fixed seed; same random colours each run
-  randCols <- sequence (replicate 1000 randomCol)
+  randCols <- sequence (replicate 1000 randomColour)
   wad <- Wad.load "doom1.wad"
   let Wad{level1=Level{vertexes}} = wad
   let xs = [ x | V2 x _ <- vertexes ]
@@ -19,10 +20,3 @@ main = do
   let conf = Engine.initConf bb randCols
   Engine.run conf wad
   pure ()
-
-randomCol :: IO Colour
-randomCol = do
-  r <- getStdRandom (randomR (100,255))
-  g <- getStdRandom (randomR (100,255))
-  b <- getStdRandom (randomR (100,255))
-  pure $ rgb (r,g,b)

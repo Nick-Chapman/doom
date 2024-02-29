@@ -5,7 +5,8 @@ module DrawMap
 
 import Data.Bits (shiftL)
 import Data.Word (Word16)
-import Pic (Colour,Pic(..),V2(..),grey,red,magenta)
+import Colour (Colour,grey,red,magenta)
+import Pic (Pic(..),V2(..))
 import ProjectToScreen (POV(..),Trapezium(..),Pole(..),compTrapezium,visibleTrap)
 import Wad (Wad(..),Level(..),Vertex,Node(..),Subsector(..),Seg(..),Linedef(..))
 
