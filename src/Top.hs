@@ -19,4 +19,3 @@ main = do
   let bb = (V2 (minimum xs) (minimum ys), V2 (maximum xs) (maximum ys))
   let conf = Engine.initConf bb randCols
   Engine.run conf wad
-  pure ()

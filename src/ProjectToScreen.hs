@@ -6,7 +6,7 @@ module ProjectToScreen
   , POV(..),getPOV,turnL,turnR,forwards,backwards,strafeL,strafeR
   ) where
 
-import Wad (Seg(..),Vertex,V2(..),Thing(..))
+import Wad (Wad(..),Level(..),Linedef(..),Sidedef(..),Seg(..),Vertex,V2(..),Thing(..),Sector(..))
 
 data POV = POV -- (player's) point-of-view -- TODO: own module
   { pos :: V2 Float
@@ -56,18 +56,31 @@ visibleTrap (Trapezium(Pole(b1,_,_,_),Pole(b2,_,_,_))) =
   b1 && b2 -- completely visible
   -- TODO: support partially visible segs; clip
 
-compTrapezium :: POV -> Seg -> Trapezium
-compTrapezium pov seg = do
+compTrapezium :: Wad -> POV -> Seg -> Trapezium
+compTrapezium wad pov seg = do
   let Seg{start,end} = seg
-  let q1 = compXYY pov start
-  let q2 = compXYY pov end
+  let sector = seg2sector wad seg
+  let q1 = compXYY pov sector start
+  let q2 = compXYY pov sector end
   Trapezium (q1,q2)
 
-compXYY :: POV -> Vertex -> Pole
-compXYY pov v1 = do
+seg2sector :: Wad -> Seg -> Sector
+seg2sector wad seg = do
+  let Wad{level1=level} = wad
+  let Level{sidedefs,sectors} = level
+  let Seg{linedef} = seg
+  let Linedef{frontSideId} = linedef
+  let sidedef = sidedefs !! frontSideId
+  let Sidedef{sectorId} = sidedef
+  sectors !! sectorId
+
+compXYY :: POV -> Sector -> Vertex -> Pole
+compXYY pov sector v1 = do
   let POV{pos=playerPos,angle=playerAngle} = pov
-  let vScale = 3 -- TODO: what should this be?
-  let (exFloorH,exCeilingH) = (32,88) -- TODO: use real values from sector
+  let Sector{floorH,ceilingH} = sector
+  let exFloorH = fromIntegral floorH
+  let exCeilingH = fromIntegral ceilingH
+  let vScale = 1 -- TODO: what should this be?
   let (screenW,screenH) = (320,200) -- TODO: from config
   let playerH = 50 -- TODO: from config; modified by current sector height
   let halfScreenW = screenW/2

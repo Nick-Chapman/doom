@@ -1,8 +1,9 @@
 
 module Wad
   ( load, Wad(..), Level(..)
-  , Thing(..), Linedef(..), Vertex, V2(..)
+  , Thing(..), Linedef(..), Sidedef(..), Vertex, V2(..)
   , Seg(..), Subsector(..), Node(..),BB(..)
+  , Sector(..)
   ) where
 
 import Data.Bits (shiftL)
@@ -35,10 +36,12 @@ data Entry = Entry
 data Level = Level
   { things :: [Thing]
   , linedefs :: [Linedef]
+  , sidedefs :: [Sidedef]
   , vertexes :: [Vertex]
   , segs :: [Seg]
   , subsectors :: [Subsector]
   , nodes :: [Node]
+  , sectors :: [Sector]
   } deriving Show
 
 data Thing = Thing
@@ -55,7 +58,9 @@ data Linedef = Linedef
   , backSideId :: Int -- TODO: direct access to optional Side
   } deriving Show
 
-data Sidedef = Sidedef {} deriving Show
+data Sidedef = Sidedef
+  { sectorId :: Int
+  } deriving Show
 
 type Vertex = V2 Int -- TODO: use float already?
 
@@ -90,6 +95,11 @@ data Node = Node
   , leftChildId :: Int
   } deriving Show
 
+data Sector = Sector
+  { floorH :: Int
+  , ceilingH :: Int
+  } deriving Show
+
 readWad :: ByteString -> Wad
 readWad bs = do
   let identification = readAscii bs 0 4
@@ -121,12 +131,13 @@ readLevel bs dict i = do
   let linedefs = readLinedefs lookV bs (dict!!(i+2))
   let lmap = Map.fromList (zip [0..] linedefs)
   let lookLD n = maybe undefined id (Map.lookup n lmap)
-  -- 3:SIDEDEFS
+  let sidedefs = readSidedefs bs (dict!!(i+3))
   let segs = readSegs lookV lookLD bs (dict!!(i+5))
   let subsectors = readSubsectors bs (dict!!(i+6))
   let nodes = readNodes bs (dict!!(i+7))
-  -- 8:SECTORS, 9:REJECT, 10:BLOCKMAP
-  Level { things, linedefs, vertexes, segs, subsectors, nodes }
+  let sectors = readSectors bs (dict!!(i+8))
+  -- 9:REJECT, 10:BLOCKMAP
+  Level { things, linedefs, sidedefs, vertexes, segs, subsectors, nodes, sectors }
 
 readThings :: ByteString -> Entry -> [Thing]
 readThings bs Entry{filepos,size,name} = do
@@ -161,6 +172,16 @@ readLinedefs lookV bs Entry{filepos,size,name} = do
   let frontSideId = readInt16 bs (off+10)
   let backSideId = readInt16 bs (off+12)
   pure Linedef { start, end, frontSideId, backSideId }
+
+readSidedefs :: ByteString -> Entry -> [Sidedef]
+readSidedefs bs Entry{filepos,size,name} = do
+  let nbytes = 30
+  assertEq name "SIDEDEFS" $ do
+  i <- [0.. size `div` nbytes - 1]
+  let off = filepos + nbytes * i
+  -- 28 bytes for 5 other fields
+  let sectorId = readInt16 bs (off+28)
+  pure Sidedef { sectorId } -- { start, end, frontSideId, backSideId }
 
 readSegs :: (Int -> Vertex) -> (Int -> Linedef) -> ByteString -> Entry -> [Seg]
 readSegs lookV lookLD bs Entry{filepos,size,name} = do
@@ -212,6 +233,17 @@ readBB bs off = do
   let left = readInt16 bs (off+4)
   let right = readInt16 bs (off+6)
   BB { top, bottom, left, right }
+
+readSectors :: ByteString -> Entry -> [Sector]
+readSectors bs Entry{filepos,size,name} = do
+  let nbytes = 26
+  assertEq name "SECTORS" $ do
+  i <- [0.. size `div` nbytes - 1]
+  let off = filepos + nbytes * i
+  let floorH = readInt16 bs off
+  let ceilingH = readInt16 bs (off+2)
+  -- 22 bytes for 5 other fields
+  pure Sector { floorH, ceilingH }
 
 readBool :: ByteString -> Offset -> Bool
 readBool bs off =

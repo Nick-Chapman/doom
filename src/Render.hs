@@ -1,5 +1,5 @@
 
-module Render
+module Render -- TODO: rename Draw (we draw pictures!)
   ( everything, Views(..)
   ) where
 
@@ -21,7 +21,7 @@ everything views randCols wad pov = do
   let csts :: [(Colour,Seg,Trapezium)] =
         [ (col,seg,trap)
         | (col,seg) <- colouredSegs
-        , let trap = compTrapezium pov seg
+        , let trap = compTrapezium wad pov seg
         ]
   let v2 = draw2d pov csts
   let v3 = draw3d csts
