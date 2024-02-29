@@ -1,6 +1,6 @@
 
-module DrawMap -- TODO: rename Render
-  ( draw, Views(..)
+module Render
+  ( everything, Views(..)
   ) where
 
 import Data.Bits (shiftL)
@@ -12,8 +12,8 @@ import Wad (Wad(..),Level(..),Vertex,Node(..),Subsector(..),Seg(..),Linedef(..))
 
 data Views = View2 | View3 | ViewBoth deriving Show
 
-draw :: Views -> [Colour] -> Wad -> POV -> Pic ()
-draw views randCols wad pov = do
+everything :: Views -> [Colour] -> Wad -> POV -> Pic ()
+everything views randCols wad pov = do
   let Wad{level1=level} = wad
   let segs = closestSegs level pov
   -- TODO: Should peg random colours to segId, not the current nearness order

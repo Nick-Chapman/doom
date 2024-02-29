@@ -4,7 +4,7 @@ module Engine
   ) where
 
 import Control.Concurrent (threadDelay)
-import DrawMap (Views(..))
+import Render (Views(..))
 import Foreign.C.Types (CInt)
 import Colour(Colour,darkGrey,white)
 import Pic (Pic,V2(..))
@@ -13,7 +13,7 @@ import SDL (Renderer,($=),InputMotion(..))
 import SDL.Input.Keyboard.Codes -- (???)
 import Wad (Wad(..),Vertex)
 import qualified Data.Text as Text (pack)
-import qualified DrawMap (draw)
+import qualified Render (everything)
 import qualified Pic (Pic(..))
 import qualified SDL
 
@@ -69,7 +69,7 @@ run conf wad = do
       --print ("frame",n,state)
       --SDL.windowSize win $= windowSize conf -- resize
       let State{pov,views} = state
-      let pic = DrawMap.draw views randCols wad pov
+      let pic = Render.everything views randCols wad pov
       drawEverything conf assets pic
       threadDelay del
       events <- SDL.pollEvents
