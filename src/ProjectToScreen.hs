@@ -14,7 +14,7 @@ data POV = POV -- (player's) point-of-view
   -- TODO: add height here
   } deriving Show
 
-turnL,turnR :: POV -> POV
+turnL,turnR :: POV -> POV -- TODO: normalize angle
 turnL POV{pos,angle} = POV { pos, angle = angle + 1 }
 turnR POV{pos,angle} = POV { pos, angle = angle - 1 }
 
@@ -27,7 +27,7 @@ data Pole = Pole (Bool,Int,Int,Int) deriving Show
 visibleTrap :: Trapezium -> Bool
 visibleTrap (Trapezium(Pole(b1,_,_,_),Pole(b2,_,_,_))) =
   b1 && b2 -- completely visible
-  -- TODO: suppoty partially visible segs; clip
+  -- TODO: support partially visible segs; clip
 
 compTrapezium :: POV -> Wad -> Seg -> Trapezium
 compTrapezium pov wad seg = do

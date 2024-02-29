@@ -1,5 +1,5 @@
 
-module DrawMap
+module DrawMap -- TODO: rename Render
   ( draw, Views(..)
   ) where
 
@@ -97,7 +97,7 @@ draw3dsegSolid col w = do
   let Trapezium(Pole(_,x1,y1f,y1c),Pole(_,x2,y2f,y2c)) = w
   let fstep :: Float = fromIntegral (y2f-y1f) / fromIntegral (x2-x1)
   let cstep :: Float = fromIntegral (y2c-y1c) / fromIntegral (x2-x1)
-  sequence_ [ LineQ col (V2 x yf) (V2 x yc)
+  sequence_ [ LineQ col (V2 x yf) (V2 x yc) -- TODO: use PointQ
             | x <- [x1..x2]
             , let yf = y1f + floor (fromIntegral (x-x1) * fstep)
             , let yc = y1c + floor (fromIntegral (x-x1) * cstep)

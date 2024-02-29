@@ -81,7 +81,7 @@ run conf wad = do
   SDL.destroyWindow win
   SDL.quit
 
-data State = State
+data State = State -- TODO: sep module?
   { pov :: POV
   --, segI :: Int
   , views :: Views
@@ -113,11 +113,13 @@ processEvent state = \case
     let motion = SDL.keyboardEventKeyMotion ke
     let State{pov,views} = state
     case (key,motion) of
+      -- TODO: continuous motion (act on both Pressed/Released)
       (KeycodeEscape,Pressed) -> pure Nothing
       -- (KeycodeReturn,Pressed) -> pure (Just state { segI = 1 + segI })
       (KeycodeReturn,Pressed) -> pure (Just state { views = cycleViews views })
       (KeycodeLeft,Pressed) -> pure (Just state { pov = turnL pov })
       (KeycodeRight,Pressed) -> pure (Just state { pov = turnR pov })
+      -- TODO: player movement
       _ -> pure (Just state)
   SDL.Event _ _ -> pure (Just state)
 
@@ -144,6 +146,7 @@ drawEverything conf assets@DrawAssets{renderer=r} pic = do
 renderPic :: Conf -> DrawAssets -> Pic () -> IO ()
 renderPic Conf{resY,sf,border,offset,scale} DrawAssets{renderer=r} = loop
   where
+    -- TODO: move remapping to caller (when generating 2d floor plan)
     remap :: V2 Float -> V2 Float
     remap p = (p + offset) * scale
 

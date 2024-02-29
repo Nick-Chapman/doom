@@ -51,8 +51,8 @@ data Linedef = Linedef
   { start :: Vertex
   , end :: Vertex
   -- TODO: 3 more fields: flags, special-type, sector-tag
-  , frontSideId :: Int
-  , backSideId :: Int
+  , frontSideId :: Int -- TODO: direct access to Side
+  , backSideId :: Int -- TODO: direct access to optional Side
   } deriving Show
 
 data Sidedef = Sidedef {} deriving Show
@@ -60,10 +60,10 @@ data Sidedef = Sidedef {} deriving Show
 type Vertex = V2 Int
 
 data Seg = Seg
-  { startId :: Int
+  { startId :: Int -- TODO: direct access to vertexes
   , endId :: Int
   , angle :: Int
-  , linedefId :: Int
+  , linedefId :: Int  -- TODO: direct access to segs
   , direction :: Bool
   , offset :: Int
   } deriving Show
@@ -71,6 +71,7 @@ data Seg = Seg
 data Subsector = Subsector
   { count :: Int
   , first :: Int
+  -- TODO: direct access to segs
   } deriving Show
 
 data BB = BB
@@ -85,7 +86,7 @@ data Node = Node
   , delta :: Vertex
   , rightBB :: BB
   , leftBB :: BB
-  , rightChildId :: Int
+  , rightChildId :: Int -- TODO: direct access to Tree
   , leftChildId :: Int
   } deriving Show
 
@@ -218,6 +219,8 @@ readBool bs off =
     n -> error (show ("readBool",n))
 
 type Offset = Int
+
+-- TODO: combinators for composing WAD readers.
 
 (!) :: ByteString -> Offset -> Word8
 (!) bs i = maybe err id (indexMaybe bs i)

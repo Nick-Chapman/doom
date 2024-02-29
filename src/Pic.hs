@@ -18,6 +18,7 @@ data Pic a where
   Line :: Colour -> V2 Float -> V2 Float -> Pic ()
   Rect :: Colour -> V2 Float -> V2 Float -> Pic ()
   LineQ :: Colour -> V2 Int -> V2 Int -> Pic ()
+  -- TODO: PointQ
 
 instance Functor Pic where fmap = liftM
 instance Applicative Pic where pure = Ret; (<*>) = ap
