@@ -39,6 +39,7 @@ draw2d pov csts = do
 
 draw3d :: [(Colour,Seg,Trapezium)] -> Pic ()
 draw3d csts = do
+  -- TODO: render portals
   let vsolids =
         [ (col,trap)
         | (col,seg,trap) <- csts

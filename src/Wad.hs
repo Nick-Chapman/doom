@@ -182,7 +182,7 @@ readSidedefs bs Entry{filepos,size,name} = do
   let off = filepos + nbytes * i
   -- 28 bytes for 5 other fields
   let sectorId = readInt16 bs (off+28)
-  pure Sidedef { sectorId } -- { start, end, frontSideId, backSideId }
+  pure Sidedef { sectorId }
 
 readSegs :: (Int -> Vertex) -> (Int -> Linedef) -> ByteString -> Entry -> [Seg]
 readSegs lookV lookLD bs Entry{filepos,size,name} = do
