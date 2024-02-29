@@ -7,7 +7,7 @@ import Data.Bits (shiftL)
 import Data.Word (Word16)
 import Pic (Colour,Pic(..),V2(..),grey,red,magenta)
 import ProjectToScreen (POV(..),Trapezium(..),Pole(..),compTrapezium,visibleTrap)
-import Wad (Wad(..),Level(..),Vertex,Int16,Node(..),Subsector(..),Seg(..),Linedef(..))
+import Wad (Wad(..),Level(..),Vertex,Node(..),Subsector(..),Seg(..),Linedef(..))
 
 data Views = View2 | View3 | ViewBoth deriving Show
 
@@ -56,14 +56,14 @@ isPortal wad seg = do
   let Wad{level1=level} = wad
   let Level{linedefs} = level
   let Seg{linedefId} = seg
-  let linedef = linedefs!!(fromIntegral linedefId)
+  let linedef = linedefs!!linedefId
   let Linedef{backSideId} = linedef
   backSideId /= -1
 
-unquantize :: V2 Int16 -> V2 Float
+unquantize :: V2 Int -> V2 Float
 unquantize = fmap fromIntegral
 
-drawPlayer :: Int16 -> POV -> Pic ()
+drawPlayer :: Int -> POV -> Pic ()
 drawPlayer h_fov pov = do
   let POV{pos,angle} = pov
   Dot magenta (unquantize pos)
@@ -75,7 +75,7 @@ drawPlayer h_fov pov = do
   drawVec magenta pos a1 len
   drawVec magenta pos a2 len
 
-drawVec :: Colour -> Vertex -> Int16 -> Float -> Pic ()
+drawVec :: Colour -> Vertex -> Int -> Float -> Pic ()
 drawVec col pos angle len = do
   let p = unquantize pos
   let r = radians angle
@@ -113,7 +113,7 @@ closestSegs level pov = do
 
 expandSS :: [Seg] -> Subsector -> [Seg]
 expandSS allSegs Subsector{first,count} =
-  [ allSegs!!(fromIntegral i) | i <- [ first .. first+count-1 ] ]
+  [ allSegs!!i | i <- [ first .. first+count-1 ] ]
 
 viewTreeFromPos :: POV -> Tree -> [Subsector]
 viewTreeFromPos pov = collectSS
@@ -132,10 +132,8 @@ onLeftSide :: Vertex -> Node -> Bool
 onLeftSide pos Node{start=partition,delta} = do
   cross (pos - partition) delta <= 0
 
-cross :: V2 Int16 -> V2 Int16 -> Int -- TODO: aggh, Int16 lose precision!
-cross (V2 x1 y1) (V2 x2 y2) =
-  f x1*f y2 - f x2*f y1
-  where f = fromIntegral
+cross :: V2 Int -> V2 Int -> Int
+cross (V2 x1 y1) (V2 x2 y2) = x1 * y2 - x2 * y1
 
 data Tree = Branch Tree Node Tree | Leaf Subsector
 
@@ -144,9 +142,9 @@ reifyTree Level{subsectors,nodes} = tNode (nodes!!(length nodes - 1))
   where
     tNode :: Node -> Tree
     tNode n@Node{rightChildId,leftChildId} = Branch (tId leftChildId) n (tId rightChildId)
-    tId :: Int16 -> Tree
+    tId :: Int -> Tree
     tId id = do
-      if id >= 0 then tNode (nodes!! fromIntegral id) else do
+      if id >= 0 then tNode (nodes!!id) else do
         let ssId :: Word16 = (1 `shiftL` 15) + fromIntegral id
-        let ss = subsectors!!(fromIntegral ssId)
+        let ss = subsectors !! fromIntegral ssId
         Leaf ss

@@ -6,11 +6,11 @@ module ProjectToScreen
   , POV(..), getPOV,turnL,turnR
   ) where
 
-import Wad (Wad(..),Level(..),Seg(..),Vertex,V2(..),Int16,Thing(..))
+import Wad (Wad(..),Level(..),Seg(..),Vertex,V2(..),Thing(..))
 
 data POV = POV -- (player's) point-of-view
   { pos :: Vertex -- TODO: use float-based world-pos here
-  , angle :: Int16 -- TODO: use Float
+  , angle :: Int -- TODO: use Float
   -- TODO: add height here
   } deriving Show
 

@@ -1,7 +1,7 @@
 
 module Wad
   ( load, Wad(..), Level(..)
-  , Thing(..), Linedef(..), Vertex, V2(..), Int16
+  , Thing(..), Linedef(..), Vertex, V2(..)
   , Seg(..), Subsector(..), Node(..),BB(..)
   ) where
 
@@ -19,16 +19,16 @@ load path = readWad <$> ByteString.readFile path
 
 data Wad = Wad
   { identification :: String
-  , numlumps :: Int32
-  , infotableofs :: Int32
+  , numlumps :: Int
+  , infotableofs :: Int
   , dict :: [Entry]
   , level1 :: Level
   , player :: Thing
   } deriving Show
 
 data Entry = Entry
-  { filepos :: Int32
-  , size :: Int32
+  { filepos :: Int
+  , size :: Int
   , name :: String
   } deriving Show
 
@@ -42,8 +42,8 @@ data Level = Level
   } deriving Show
 
 data Thing = Thing
-  { pos :: V2 Int16
-  , angle :: Int16
+  { pos :: V2 Int
+  , angle :: Int
   -- TODO: 3 more fields
   } deriving Show
 
@@ -57,27 +57,27 @@ data Linedef = Linedef
 
 data Sidedef = Sidedef {} deriving Show
 
-type Vertex = V2 Int16 -- TODO: prefer Int!
+type Vertex = V2 Int
 
-data Seg = Seg -- TODO: explore using Int instead of Int16...
+data Seg = Seg
   { startId :: Int
   , endId :: Int
   , angle :: Int
-  , linedefId :: Int16
+  , linedefId :: Int
   , direction :: Bool
-  , offset :: Int16
+  , offset :: Int
   } deriving Show
 
 data Subsector = Subsector
-  { count :: Int16
-  , first :: Int16
+  { count :: Int
+  , first :: Int
   } deriving Show
 
 data BB = BB
-  { top :: Int16
-  , bottom :: Int16
-  , left :: Int16
-  , right :: Int16
+  { top :: Int
+  , bottom :: Int
+  , left :: Int
+  , right :: Int
   } deriving Show
 
 data Node = Node
@@ -85,8 +85,8 @@ data Node = Node
   , delta :: Vertex
   , rightBB :: BB
   , leftBB :: BB
-  , rightChildId :: Int16
-  , leftChildId :: Int16
+  , rightChildId :: Int
+  , leftChildId :: Int
   } deriving Show
 
 readWad :: ByteString -> Wad
@@ -94,7 +94,7 @@ readWad bs = do
   let identification = readAscii bs 0 4
   let numlumps = readInt32 bs 4
   let infotableofs = readInt32 bs 8
-  let dict = readDict bs (fromIntegral infotableofs) (fromIntegral numlumps)
+  let dict = readDict bs infotableofs numlumps
   let getEntryIndex name = head [ i | (i,Entry{name=n}) <- zip [0..] dict, name==n ]
   let level1@Level{things} = readLevel bs dict (getEntryIndex "E1M1")
   let player = things!!0
@@ -130,7 +130,7 @@ readThings bs Entry{filepos,size,name} = do
   let nbytes = 10
   assertEq name "THINGS" $ do
   i <- [0.. size `div` nbytes - 1]
-  let off = fromIntegral (filepos + nbytes * i)
+  let off = filepos + nbytes * i
   let x = readInt16 bs off
   let y = readInt16 bs (off+2)
   let angle = readInt16 bs (off+4)
@@ -141,22 +141,22 @@ readVertexes bs Entry{filepos,size,name} = do
   let nbytes = 4
   assertEq name "VERTEXES" $ do
   i <- [0.. size `div` nbytes - 1]
-  let off = fromIntegral (filepos + nbytes * i)
+  let off = filepos + nbytes * i
   let x = readInt16 bs off
   let y = readInt16 bs (off+2)
   pure (V2 x y)
 
-readLinedefs :: (Int16 -> Vertex) -> ByteString -> Entry -> [Linedef]
+readLinedefs :: (Int -> Vertex) -> ByteString -> Entry -> [Linedef]
 readLinedefs lookV bs Entry{filepos,size,name} = do
   let nbytes = 14
   assertEq name "LINEDEFS" $ do
   i <- [0.. size `div` nbytes - 1]
-  let off = fromIntegral (filepos + nbytes * i)
+  let off = filepos + nbytes * i
   let start = lookV $ readInt16 bs off
   let end = lookV $ readInt16 bs (off+2)
   -- 6 bytes for 3 other fields
-  let frontSideId = readInt16' bs (off+10)
-  let backSideId = readInt16' bs (off+12)
+  let frontSideId = readInt16 bs (off+10)
+  let backSideId = readInt16 bs (off+12)
   pure Linedef { start, end, frontSideId, backSideId }
 
 readSegs :: ByteString -> Entry -> [Seg]
@@ -164,10 +164,10 @@ readSegs bs Entry{filepos,size,name} = do
   let nbytes = 12
   assertEq name "SEGS" $ do
   i <- [0.. size `div` nbytes - 1]
-  let off = fromIntegral (filepos + nbytes * i)
-  let startId = fromIntegral $ readInt16 bs off
-  let endId = readInt16' bs (off+2)
-  let angle = readInt16' bs (off+4)
+  let off = filepos + nbytes * i
+  let startId = readInt16 bs off
+  let endId = readInt16 bs (off+2)
+  let angle = readInt16 bs (off+4)
   let linedefId = readInt16 bs (off+6)
   let direction = readBool bs (off+8)
   let offset = readInt16 bs (off+10)
@@ -178,7 +178,7 @@ readSubsectors bs Entry{filepos,size,name} = do
   let nbytes = 4
   assertEq name "SSECTORS" $ do
   i <- [0.. size `div` nbytes - 1]
-  let off = fromIntegral (filepos + nbytes * i)
+  let off = filepos + nbytes * i
   let count = readInt16 bs off
   let first = readInt16 bs (off+2)
   pure Subsector { count, first }
@@ -188,7 +188,7 @@ readNodes bs Entry{filepos,size,name} = do
   let nbytes = 28
   assertEq name "NODES" $ do
   i <- [0.. size `div` nbytes - 1]
-  let off = fromIntegral (filepos + nbytes * i)
+  let off = filepos + nbytes * i
   let startX = readInt16 bs off
   let startY = readInt16 bs (off+2)
   let start = V2 startX startY
@@ -227,15 +227,12 @@ readAscii :: ByteString -> Offset -> Int -> String
 readAscii bs off n =
   takeWhile (/='\0') [ w2c (bs!i) | i <- take n [off..] ]
 
-readInt32 :: ByteString -> Offset -> Int32
-readInt32 bs off =
+readInt32 :: ByteString -> Offset -> Int
+readInt32 bs off = fromIntegral @Int32 $
   sum [ fromIntegral (bs!(off+i)) `shiftL` (8*i) | i <- take 4 [0..] ]
 
-readInt16' :: ByteString -> Offset -> Int -- TODO: become standard
-readInt16' bs off = fromIntegral (readInt16 bs off)
-
-readInt16 :: ByteString -> Offset -> Int16
-readInt16 bs off =
+readInt16 :: ByteString -> Offset -> Int
+readInt16 bs off = fromIntegral @Int16 $
   sum [ fromIntegral (bs!(off+i)) `shiftL` (8*i) | i <- take 2 [0..] ]
 
 assertEq :: (Show a, Eq a) =>  a -> a -> x -> x
