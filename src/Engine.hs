@@ -5,13 +5,14 @@ module Engine
 
 import Control.Concurrent (threadDelay)
 import Foreign.C.Types (CInt)
-import Pic (Pic,V2(..),Colour,darkGrey,white)
-import SDL (Renderer,($=))
+import Pic --(Pic,V2(..),Colour,darkGrey,white)
+import SDL (Renderer,($=),InputMotion(..))
 import Wad (Wad,Vertex)
 import qualified Data.Text as Text (pack)
 import qualified DrawMap (draw)
-import qualified Pic (Pic(..))
+--import qualified Pic (Pic(..))
 import qualified SDL
+import SDL.Input.Keyboard.Codes
 
 data Conf = Conf
   { resX :: CInt
@@ -20,15 +21,17 @@ data Conf = Conf
   , sf :: CInt
   , offset :: V2 Float
   , scale :: V2 Float
+  , randCols :: [Colour]
   } deriving Show
 
 type BB = (Vertex,Vertex)
 
-initConf :: BB -> Conf
-initConf bb = Conf
+initConf :: BB -> [Colour] -> Conf
+initConf bb randCols = Conf
   { resX, resY, border, sf
   , offset = V2 offsetX offsetY
   , scale = V2 scaleX scaleY
+  , randCols = cycle randCols
   }
   where
     sf = 5
@@ -48,6 +51,7 @@ windowSize Conf{sf,resX,resY} = V2 (sf * fromIntegral resX) (sf * fromIntegral r
 
 run :: Conf -> Wad -> IO ()
 run conf wad = do
+  let Conf{randCols} = conf
   SDL.initializeAll
   let winConfig = SDL.defaultWindow { SDL.windowInitialSize = windowSize conf }
   win <- SDL.createWindow (Text.pack "Doom") $ winConfig
@@ -55,19 +59,50 @@ run conf wad = do
     SDL.defaultRenderer { SDL.rendererType = SDL.UnacceleratedRenderer }
   let assets = DrawAssets { win, renderer }
   let
-    loop :: Int -> IO ()
-    loop n = do
+    loop :: Int -> State -> IO ()
+    loop n state = do
       --print ("frame",n)
-      --TODO: get events; update state
       --SDL.windowSize win $= windowSize conf -- resize
-      let pic = DrawMap.draw wad
+      let State{segI} = state
+      let pic = DrawMap.draw randCols segI wad
       drawEverything conf assets pic
-      threadDelay 1000000 -- 1sec
-      loop (n+1)
-  loop 0
+      threadDelay 100000 -- 0.1 sec
+      events <- SDL.pollEvents
+      processEvents state events >>= \case
+        Nothing -> pure () -- Quit
+        Just state -> loop (n+1) state
+  loop 0 state0
   SDL.destroyRenderer renderer
   SDL.destroyWindow win
   SDL.quit
+
+data State = State
+  { segI :: Int
+  } deriving Show
+
+state0 :: State
+state0 = State { segI = 0 }
+
+processEvents :: State -> [SDL.Event] -> IO (Maybe State)
+processEvents state = \case
+  [] -> pure (Just state)
+  e1:es -> do
+    processEvent state e1 >>= \case
+      Nothing -> pure Nothing -- Quit
+      Just state -> processEvents state es
+
+processEvent :: State -> SDL.Event -> IO (Maybe State)
+processEvent state = \case
+  SDL.Event _ SDL.QuitEvent -> pure Nothing -- Quit
+  SDL.Event _ (SDL.KeyboardEvent ke) -> do
+    let key = SDL.keysymKeycode (SDL.keyboardEventKeysym ke)
+    let motion = SDL.keyboardEventKeyMotion ke
+    let State{segI} = state
+    case (key,motion) of
+      (KeycodeEscape,Pressed) -> pure Nothing
+      (KeycodeReturn,Pressed) -> pure (Just state { segI = 1 + segI })
+      _ -> pure (Just state)
+  SDL.Event _ _ -> pure (Just state)
 
 data DrawAssets = DrawAssets
   { renderer :: Renderer
@@ -103,7 +138,7 @@ renderPic Conf{resY,sf,border,offset,scale} DrawAssets{renderer=r} = loop
       Pic.Bind m f -> do b <- loop m; loop (f b)
       Pic.Pause -> do
         SDL.present r
-        threadDelay 1000000
+        threadDelay 100000
       Pic.Dot col p -> do
         setColor r col
         let p' = snap p
@@ -118,6 +153,16 @@ renderPic Conf{resY,sf,border,offset,scale} DrawAssets{renderer=r} = loop
         let p' = snap p
         let q' = snap q
         SDL.drawRect r (Just (SDL.Rectangle (SDL.P p') (q' - p')))
+      Pic.Mes s -> do
+        putStrLn ("Mes:"++s)
+      Pic.Eff io -> io
+
+      Pic.LineQ col p q -> do
+        setColor r col
+        let p' = (V2 sf sf *) $ flipY (fmap fromIntegral p)
+        let q' = (V2 sf sf *) $ flipY (fmap fromIntegral q)
+        SDL.drawLine r (SDL.P p') (SDL.P q')
+
 
 setColor :: SDL.Renderer -> Colour -> IO ()
 setColor r c = SDL.rendererDrawColor r $= c

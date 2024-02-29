@@ -3,7 +3,7 @@ module Pic
   ( Pic(..)
   , V2(..)
   , RGB, rgb, Colour
-  , white,grey,darkGrey,red,green,blue,yellow,magenta,cyan
+  , white,lightGrey,grey,darkGrey,red,green,blue,yellow,magenta,cyan
   ) where
 
 import Control.Monad (ap,liftM)
@@ -15,9 +15,12 @@ data Pic a where
   Ret :: a -> Pic a
   Bind :: Pic a -> (a -> Pic b) -> Pic b
   Pause :: Pic ()
+  Mes :: String -> Pic ()
+  Eff :: IO () -> Pic ()
   Dot :: Colour -> V2 Float -> Pic ()
   Line :: Colour -> V2 Float -> V2 Float -> Pic ()
   Rect :: Colour -> V2 Float -> V2 Float -> Pic ()
+  LineQ :: Colour -> V2 Int -> V2 Int -> Pic ()
 
 instance Functor Pic where fmap = liftM
 instance Applicative Pic where pure = Ret; (<*>) = ap
@@ -29,9 +32,10 @@ type Colour = V4 Word8
 rgb :: RGB -> Colour
 rgb (r,g,b) = V4 r g b 255
 
-white,grey,darkGrey,red,green,blue,yellow,magenta,cyan :: Colour
+white,lightGrey,grey,darkGrey,red,green,blue,yellow,magenta,cyan :: Colour
 
 white    = rgb (255,255,255)
+lightGrey= rgb (150,150,150)
 grey     = rgb (70,70,70)
 darkGrey = rgb (20,20,20)
 red      = rgb (255,0,0)

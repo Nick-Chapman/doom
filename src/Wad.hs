@@ -50,15 +50,19 @@ data Thing = Thing
 data Linedef = Linedef
   { start :: Vertex
   , end :: Vertex
-  -- TODO: 5 more fields
+  -- TODO: 3 more fields: flags, special-type, sector-tag
+  , frontSideId :: Int
+  , backSideId :: Int
   } deriving Show
 
-type Vertex = V2 Int16
+data Sidedef = Sidedef {} deriving Show
 
-data Seg = Seg
-  { startId :: Int16
-  , endId :: Int16
-  , angle :: Int16
+type Vertex = V2 Int16 -- TODO: prefer Int!
+
+data Seg = Seg -- TODO: explore using Int instead of Int16...
+  { startId :: Int
+  , endId :: Int
+  , angle :: Int
   , linedefId :: Int16
   , direction :: Bool
   , offset :: Int16
@@ -150,7 +154,10 @@ readLinedefs lookV bs Entry{filepos,size,name} = do
   let off = fromIntegral (filepos + nbytes * i)
   let start = lookV $ readInt16 bs off
   let end = lookV $ readInt16 bs (off+2)
-  pure Linedef { start, end }
+  -- 6 bytes for 3 other fields
+  let frontSideId = readInt16' bs (off+10)
+  let backSideId = readInt16' bs (off+12)
+  pure Linedef { start, end, frontSideId, backSideId }
 
 readSegs :: ByteString -> Entry -> [Seg]
 readSegs bs Entry{filepos,size,name} = do
@@ -158,9 +165,9 @@ readSegs bs Entry{filepos,size,name} = do
   assertEq name "SEGS" $ do
   i <- [0.. size `div` nbytes - 1]
   let off = fromIntegral (filepos + nbytes * i)
-  let startId = readInt16 bs off
-  let endId = readInt16 bs (off+2)
-  let angle = readInt16 bs (off+4)
+  let startId = fromIntegral $ readInt16 bs off
+  let endId = readInt16' bs (off+2)
+  let angle = readInt16' bs (off+4)
   let linedefId = readInt16 bs (off+6)
   let direction = readBool bs (off+8)
   let offset = readInt16 bs (off+10)
@@ -223,6 +230,9 @@ readAscii bs off n =
 readInt32 :: ByteString -> Offset -> Int32
 readInt32 bs off =
   sum [ fromIntegral (bs!(off+i)) `shiftL` (8*i) | i <- take 4 [0..] ]
+
+readInt16' :: ByteString -> Offset -> Int -- TODO: become standard
+readInt16' bs off = fromIntegral (readInt16 bs off)
 
 readInt16 :: ByteString -> Offset -> Int16
 readInt16 bs off =

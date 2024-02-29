@@ -21,6 +21,7 @@ dependencies:
 - haskeline
 - linear
 - mtl
+- random
 - sdl2
 - split
 - text

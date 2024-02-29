@@ -3,55 +3,86 @@ module DrawMap
   ( draw
   ) where
 
-import Pic (Pic(..),Colour,V2(..),grey,magenta,yellow,green,red,white)
-import Wad (Wad(..),Level(..),Thing(..),Linedef(..),Vertex,Int16
-           ,Node(..),BB(..),Subsector(..))
+import Pic
+import Wad --(Wad(..),Level(..),Thing(..),Vertex,Int16,Node(..),Subsector(..),Seg(..),Linedef(..))
 import Data.Word (Word16)
 import Data.Bits (shiftL)
+import ProjectToScreen -- (Trapezium(..),Pole(..),compTrapezium,visible,printTrapezium)
 
-draw :: Wad -> Pic ()
-draw Wad{level1=level,player} = do
-  let Level{linedefs,vertexes} = level
-  drawLines linedefs
-  let _ = mapM_ drawVertex vertexes
-  drawPlayer 45 player
-  drawTreeToPlayer (reifyTree level)
-  where
-    drawTreeToPlayer :: Tree -> Pic ()
-    drawTreeToPlayer = \case
-      Branch l n@Node{start,delta,rightBB,leftBB} r -> do
-        Line white (unquantize start) (unquantize (start+delta))
-        Pause
-        case onLeftSideForPlayer player n of
-          True -> do
-            drawBB green leftBB
-            drawBB red rightBB
-            drawTreeToPlayer l
-          False -> do
-            drawBB green rightBB
-            drawBB red leftBB
-            drawTreeToPlayer r
-      Leaf ss ->
-        drawSS ss
 
-onLeftSideForPlayer :: Thing -> Node -> Bool
-onLeftSideForPlayer Thing{pos=player} Node{start=partition,delta} = do
-  cross (player - partition) delta <= 0
-
-cross :: V2 Int16 -> V2 Int16 -> Int -- TODO: aggh, Int16 lose precision!
-cross (V2 x1 y1) (V2 x2 y2) =
-  f x1*f y2 - f x2*f y1
-  where f = fromIntegral
-
-drawLines :: [Linedef] -> Pic ()
-drawLines linedefs = do
-  sequence_ [ drawLinedef grey ld | ld <- linedefs ]
+draw :: [Colour] -> Int -> Wad -> Pic ()
+draw cols i wad = do
+  let _ = draw2d wad
+  draw3d cols i wad
   pure ()
+
+-- Map view...
+draw2d :: Wad -> Pic ()
+draw2d wad = do
+  let Wad{level1=level,player} = wad
+  let Level{vertexes} = level
+  let Thing{pos=playerPos} = player
+  let segs = closestSegs level playerPos
+  sequence_ [ do drawSeg vertexes col seg
+            | seg <- segs
+            , let col = if isPortal wad seg then grey else lightGrey
+            ]
+  drawPlayer 45 player
+
+
+-- 1st person persepective...
+draw3d :: [Colour] -> Int -> Wad -> Pic ()
+draw3d randCols _i wad = do
+  let Wad{level1=level,player} = wad
+  let Thing{pos=playerPos} = player
+  let segs = closestSegs level playerPos
+  let vtraps =
+        [ (seg,trap)
+        | seg <- reverse segs -- start furthest away, for painter alg !!
+        , let trap = compTrapezium wad seg
+        , visible trap -- in players persepective
+        , not (isPortal wad seg) -- solid wall
+        ]
+  --Mes (show ("#vtraps",length vtraps))
+  sequence_ [ do draw3dsegSolid col trap
+            | (col,(_,trap)) <- zip randCols vtraps
+            ]
+  -- highlight specific seg/trap
+  let segI = _i `mod` length vtraps
+  Eff (print segI)
+  let (seg,trap) = vtraps!!segI
+  Eff (_infoSeg wad seg)
+  Eff (printTrapezium trap)
+  let Level{vertexes=_vs} = level
+  --drawSeg _vs green seg
+  draw3dsegFrame yellow trap
+
+isPortal :: Wad -> Seg -> Bool
+isPortal wad seg = do
+  let Wad{level1=level} = wad
+  let Level{linedefs} = level
+  let Seg{linedefId} = seg
+  let linedef = linedefs!!(fromIntegral linedefId)
+  let Linedef{backSideId} = linedef
+  backSideId /= -1
+
+_infoSeg :: Wad -> Seg -> IO ()
+_infoSeg wad seg = do
+  let Wad{level1=level} = wad
+  let Level{linedefs} = level
+  print seg
+  let Seg{linedefId} = seg
+  let linedef = linedefs!!(fromIntegral linedefId)
+  print linedef
+  pure ()
+
+unquantize :: V2 Int16 -> V2 Float
+unquantize = fmap fromIntegral
 
 drawPlayer :: Int16 -> Thing -> Pic ()
 drawPlayer h_fov Thing{pos,angle} = do
   Dot magenta (unquantize pos)
-  let len = 1000
+  let len = 3000
   let a = angle
   let a1 = a - h_fov
   let a2 = a + h_fov
@@ -68,16 +99,74 @@ drawVec col pos angle len = do
   where
     radians n = fromIntegral n * pi / 180
 
-unquantize :: V2 Int16 -> V2 Float
-unquantize = fmap fromIntegral
-
-drawVertex :: Vertex -> Pic ()
-drawVertex v = do
-  Dot yellow (unquantize v)
-
-drawLinedef :: Colour -> Linedef -> Pic ()
-drawLinedef col Linedef{start,end} = do
+drawSeg :: [Vertex] -> Colour -> Seg -> Pic ()
+drawSeg vertexes col seg = do
+  let Seg{startId,endId} = seg
+  let start = vertexes!!startId
+  let end = vertexes!!endId
   Line col (unquantize start) (unquantize end)
+
+draw3dsegFrame :: Colour -> Trapezium -> Pic ()
+draw3dsegFrame col w = do
+  let Trapezium(Pole(_,x1,y1f,y1c),Pole(_,x2,y2f,y2c)) = w
+  let a = V2 x1 y1f
+  let b = V2 x2 y2f
+  let c = V2 x1 y1c
+  let d = V2 x2 y2c
+  LineQ col a b
+  LineQ col c d
+  LineQ col a c
+  LineQ col b d
+  pure ()
+
+
+draw3dsegSolid :: Colour -> Trapezium -> Pic ()
+draw3dsegSolid col w = do
+  let Trapezium(Pole(_,x1,y1f,y1c),Pole(_,x2,y2f,y2c)) = w
+
+  let fstep :: Float = fromIntegral (y2f-y1f) / fromIntegral (x2-x1)
+  let cstep :: Float = fromIntegral (y2c-y1c) / fromIntegral (x2-x1)
+
+  sequence_ [ LineQ col (V2 x yf) (V2 x yc)
+            | x <- [x1..x2]
+            , let yf = y1f + floor (fromIntegral (x-x1) * fstep)
+            , let yc = y1c + floor (fromIntegral (x-x1) * cstep)
+            ]
+
+
+closestSegs :: Level -> Vertex -> [Seg]
+closestSegs level pos = do
+  let Level{segs=allSegs} = level
+  let tree = reifyTree level
+  let subs = viewTreeFromPos pos tree
+  subs >>= expandSS allSegs
+
+expandSS :: [Seg] -> Subsector -> [Seg]
+expandSS allSegs Subsector{first,count} =
+  [ allSegs!!(fromIntegral i) | i <- [ first .. first+count-1 ] ]
+
+viewTreeFromPos :: Vertex -> Tree -> [Subsector]
+viewTreeFromPos playerPos = collectSS
+  where
+    collectSS :: Tree -> [Subsector]
+    collectSS = \case
+      Branch l n r -> do
+        case onLeftSide playerPos n of
+          True -> do collectSS l ++ collectSS r
+          False -> do collectSS r ++ collectSS l
+      Leaf ss ->
+        [ss]
+
+onLeftSide :: Vertex -> Node -> Bool
+onLeftSide pos Node{start=partition,delta} = do
+  cross (pos - partition) delta <= 0
+
+cross :: V2 Int16 -> V2 Int16 -> Int -- TODO: aggh, Int16 lose precision!
+cross (V2 x1 y1) (V2 x2 y2) =
+  f x1*f y2 - f x2*f y1
+  where f = fromIntegral
+
+data Tree = Branch Tree Node Tree | Leaf Subsector
 
 reifyTree :: Level -> Tree
 reifyTree Level{subsectors,nodes} = tNode (nodes!!(length nodes - 1))
@@ -90,15 +179,3 @@ reifyTree Level{subsectors,nodes} = tNode (nodes!!(length nodes - 1))
         let ssId :: Word16 = (1 `shiftL` 15) + fromIntegral id
         let ss = subsectors!!(fromIntegral ssId)
         Leaf ss
-
-data Tree = Branch Tree Node Tree | Leaf Subsector
-
-drawSS :: Subsector -> Pic ()
-drawSS _ = do
-  pure ()
-
-drawBB :: Colour -> BB -> Pic ()
-drawBB col BB {top,bottom,left,right} = do
-  let a = V2 left top
-  let b = V2 right bottom
-  Rect col (unquantize a) (unquantize b)
